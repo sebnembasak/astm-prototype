@@ -3,8 +3,8 @@
 Bu proje Alçak Dünya Yörüngesi (LEO) uydularının çarpışma risklerini (Conjunction Assessment) yönetmek ve optimal kaçınma manevralarını planlamak için geliştirilmiş bir sistemdir.
 Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üzerine kurulmuştur. Frontend ise etkileşimli bir Dashboard, Uydu Kataloğu ve Canlı Harita Görselleştirmesi sunan modern bir HTML/JavaScript arayüzüdür.
 
+![ASTM](dashboard/assets/img/sat2.jpg "Main")
 
-![ASTM](docs/astm-demo.gif "ASTM Demo Gif")
 
 ## Temel Özellikler
 
@@ -25,8 +25,7 @@ Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üze
 * **Manevra Planlama Modalı:** Seçilen bir çarpışma uyarısı için, hedeflenen güvenli mesafeye ulaşmak için gereken optimal DeltaV değerlerini gösteren etkileşimli bir arayüz sunar.
 
 ### ASTM-Demo Örneği
-![ASTM](dashboard/assets/img/sat2.jpg "Prototip Dashboard Görünümü")
-
+![ASTM](docs/astm-demo.gif "ASTM Demo Gif")
 
 ## Kurulum ve Çalıştırma
 
