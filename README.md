@@ -3,6 +3,9 @@
 Bu proje Alçak Dünya Yörüngesi (LEO) uydularının çarpışma risklerini (Conjunction Assessment) yönetmek ve optimal kaçınma manevralarını planlamak için geliştirilmiş bir sistemdir.
 Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üzerine kurulmuştur. Frontend ise etkileşimli bir Dashboard, Uydu Kataloğu ve Canlı Harita Görselleştirmesi sunan modern bir HTML/JavaScript arayüzüdür.
 
+
+![ASTM](dashboard/assets/img/sat2.jpg "Prototip Dashboard Görünümü")
+
 ## Temel Özellikler
 
 ### Backend
@@ -32,7 +35,7 @@ Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üze
 
 1.  **Projeyi Klonlama:**
     ```bash
-    git clone <PROJE_REPO_ADRESI>
+    git clone https://github.com/sebnembasak/astm-prototype
     cd astm-prototype
     ```
 
@@ -94,3 +97,38 @@ Proje, Servis Katmanı Mimarisi (Service Layer Architecture) kullanılarak tasar
 | **backend/models** | Veritabanı şemaları ve bağlantı ayarları (`db.py`).                                                       |
 | **main.py** | FastAPI uygulamasının ana giriş noktası.                                                                  |
 | **assets/** | CSS, JS ve görsel dosyaları.                                                                              |
+
+## Diyagramlar
+### Sistem Mimarisi Diyagramı:
+![sistemMimarisi](docs/diagrams/sistemMimarisi.png "Sistem Mimarisi Diyagramı")
+
+### Çarpışma Analizi Mimarisi Diyagramı:
+![carpismaAnalizi](docs/diagrams/carpismaAnalizi.png "Çarpışma Analizi Diyagramı")
+
+### Manevra Analizi Diyagramı:
+![manevraAnalizi](docs/diagrams/manevraAnalizi.png "Manevra Analizi Diyagramı")
+
+Sistem hakkında detaylı bilgiye ```docs``` klasörü altındaki ```astm-rapor.pdf``` dosyasından ulaşabilirsiniz.
+
+
+## Ekran Görüntüleri
+### Dashboard:
+![ASTM](docs/screenshots/dashboard.png "dashboard")
+
+### Katalog:
+![ASTM](docs/screenshots/katalog.png "katalog")
+
+### Çarpışma Analizi:
+![ASTM](docs/screenshots/carpismaAnaliz.png "carpismaAnaliz")
+
+### Kenetlenme:
+![ASTM](docs/screenshots/kenetlenme.png "kenetlenme")
+
+### Çarpışma Simülasyonu:
+![ASTM](docs/screenshots/carpismaSimulasyon.png "carpismaSimulasyon")
+
+### Manevra Optimizasyonu:
+![ASTM](docs/screenshots/manevraOptimizasyonu.png "manevraOptimizasyonu")
+
+### Yörünge Simülasyonu:
+![ASTM](docs/screenshots/yorungeSimulasyon.png "yorungeSimulasyon")

@@ -11,6 +11,7 @@ venv/
 # Veri Dosyaları
 # Proje veritabanı dosyası
 data/astm.db
+.DS_Store
 
 # IDE Klasörleri
 .idea/
