@@ -4,7 +4,7 @@ Bu proje Alçak Dünya Yörüngesi (LEO) uydularının çarpışma risklerini (C
 Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üzerine kurulmuştur. Frontend ise etkileşimli bir Dashboard, Uydu Kataloğu ve Canlı Harita Görselleştirmesi sunan modern bir HTML/JavaScript arayüzüdür.
 
 
-![ASTM](dashboard/assets/img/sat2.jpg "Prototip Dashboard Görünümü")
+![ASTM](docs/astm-demo.gif "ASTM Demo Gif")
 
 ## Temel Özellikler
 
@@ -23,6 +23,10 @@ Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üze
 * **Canlı Harita Görünümü:** Leaflet.js haritası üzerinde, seçilen uyduların SGP4 ile hesaplanmış yörünge yollarını (Lat/Lon/Alt) görselleştirir.
 * **Çarpışma Analizi Arayüzü:** Kritik Riskler (`COLLISION`) ve Yakın Formasyon Uçuşları/Kenetlenmeler (`DOCKING`) olaylarını ayırarak görüntüler.
 * **Manevra Planlama Modalı:** Seçilen bir çarpışma uyarısı için, hedeflenen güvenli mesafeye ulaşmak için gereken optimal DeltaV değerlerini gösteren etkileşimli bir arayüz sunar.
+
+### ASTM-Demo Örneği
+![ASTM](dashboard/assets/img/sat2.jpg "Prototip Dashboard Görünümü")
+
 
 ## Kurulum ve Çalıştırma
 
@@ -100,35 +104,35 @@ Proje, Servis Katmanı Mimarisi (Service Layer Architecture) kullanılarak tasar
 
 ## Diyagramlar
 ### Sistem Mimarisi Diyagramı:
-![sistemMimarisi](docs/diagrams/sistemMimarisi.png "Sistem Mimarisi Diyagramı")
+![sistemMimarisi](docs/Diagrams/sistemMimarisi.png "Sistem Mimarisi Diyagramı")
 
 ### Çarpışma Analizi Mimarisi Diyagramı:
-![carpismaAnalizi](docs/diagrams/carpismaAnalizi.png "Çarpışma Analizi Diyagramı")
+![carpismaAnalizi](docs/Diagrams/carpismaAnalizi.png "Çarpışma Analizi Diyagramı")
 
 ### Manevra Analizi Diyagramı:
-![manevraAnalizi](docs/diagrams/manevraAnalizi.png "Manevra Analizi Diyagramı")
+![manevraAnalizi](docs/Diagrams/manevraAnalizi.png "Manevra Analizi Diyagramı")
 
 Sistem hakkında detaylı bilgiye ```docs``` klasörü altındaki ```astm-rapor.pdf``` dosyasından ulaşabilirsiniz.
 
 
 ## Ekran Görüntüleri
 ### Dashboard:
-![ASTM](docs/screenshots/dashboard.png "dashboard")
+![ASTM](docs/Screenshots/dashboard.png "dashboard")
 
 ### Katalog:
-![ASTM](docs/screenshots/katalog.png "katalog")
+![ASTM](docs/Screenshots/katalog.png "katalog")
 
 ### Çarpışma Analizi:
-![ASTM](docs/screenshots/carpismaAnaliz.png "carpismaAnaliz")
+![ASTM](docs/Screenshots/carpismaAnaliz.png "carpismaAnaliz")
 
 ### Kenetlenme:
-![ASTM](docs/screenshots/kenetlenme.png "kenetlenme")
+![ASTM](docs/Screenshots/kenetlenme.png "kenetlenme")
 
 ### Çarpışma Simülasyonu:
-![ASTM](docs/screenshots/carpismaSimulasyon.png "carpismaSimulasyon")
+![ASTM](docs/Screenshots/carpismaSimulasyon.png "carpismaSimulasyon")
 
 ### Manevra Optimizasyonu:
-![ASTM](docs/screenshots/manevraOptimizasyonu.png "manevraOptimizasyonu")
+![ASTM](docs/Screenshots/manevraOptimizasyonu.png "manevraOptimizasyonu")
 
 ### Yörünge Simülasyonu:
-![ASTM](docs/screenshots/yorungeSimulasyon.png "yorungeSimulasyon")
+![ASTM](docs/Screenshots/yorungeSimulasyon.png "yorungeSimulasyon")
