@@ -25,7 +25,7 @@ Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üze
 * **Manevra Planlama Modalı:** Seçilen bir çarpışma uyarısı için, hedeflenen güvenli mesafeye ulaşmak için gereken optimal DeltaV değerlerini gösteren etkileşimli bir arayüz sunar.
 
 ### ASTM-Demo Örneği
-![ASTM](docs/astm-demo.gif "ASTM Demo Gif")
+Örnek için `docs/astm-demo.gif` dosyasını inceleyebilirsiniz. 
 
 ## Kurulum ve Çalıştırma
 
