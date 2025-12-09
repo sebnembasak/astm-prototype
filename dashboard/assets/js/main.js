@@ -381,7 +381,6 @@
             } catch(e) { console.error(e); }
         }
 
-        // Manevra Modal
         function openManeuverModal(alertData) {
             selectedAlert = alertData;
             document.getElementById('m-sat1').innerText = `${alertData.sat1_name} (${alertData.sat1_id})`;
@@ -411,36 +410,30 @@ async function calculateManeuver() {
         const result = await res.json();
         showLoading(false);
 
-        // --- İstenen Başarı/Hata Mantığı Başlangıcı ---
         if (result.success) {
             document.getElementById('maneuver-result').classList.remove('d-none');
             document.getElementById('maneuver-result').classList.remove('alert-danger');
             document.getElementById('maneuver-result').classList.add('alert-dark');
 
-            // Başarılı değerleri yazdır
             document.getElementById('res-burn').innerText = new Date(result.burn_time).toLocaleTimeString();
             document.getElementById('res-dv').innerText = result.dv_magnitude_m_s.toFixed(5) + " m/s";
             document.getElementById('res-dist').innerText = result.predicted_miss_km.toFixed(4) + " km";
-            document.getElementById('res-msg').innerText = result.message; // Başarı mesajını ayarla
+            document.getElementById('res-msg').innerText = result.message;
 
         } else {
             document.getElementById('maneuver-result').classList.remove('d-none');
             document.getElementById('maneuver-result').classList.remove('alert-dark');
             document.getElementById('maneuver-result').classList.add('alert-danger');
 
-            // Hata değerlerini ve mesajı ayarla
             document.getElementById('res-msg').innerText = "HATA: " + (result.error_detail || result.message);
             document.getElementById('res-burn').innerText = "-";
             document.getElementById('res-dv').innerText = "-";
             document.getElementById('res-dist').innerText = "-";
         }
-        // --- İstenen Başarı/Hata Mantığı Sonu ---
 
     } catch(e) {
         showLoading(false);
         alert("Hata: " + e);
-        // Ağ hatası durumunda da hata div'ini gösterebilirsiniz,
-        // ancak orijinal talepte sadece alert() kullanılmış.
     }
 }
 
@@ -466,14 +459,9 @@ async function calculateManeuver() {
             finally { showLoading(false); }
         }
 
-        // --- DATA LOADING & OTHER ---
         async function loadDashboardStats() {
-            // MOCK VERİ İPTAL EDİLDİ. Gerçek endpointler çağrılıyor.
-
-            // 1. Sistem Sağlığı Kontrolü
             try {
                 const healthRes = await fetch(`${API_BASE}/health`);
-                // Backend'den { status: 'OK', services: [...] } bekleniyor
                 if(healthRes.ok) {
                     const healthData = await healthRes.json();
                     document.getElementById('stat-sys-health').innerText = healthData.status || "OK";
@@ -488,16 +476,14 @@ async function calculateManeuver() {
                 document.getElementById('stat-sys-msg').innerHTML = '<i class="fas fa-times-circle"></i> API Bağlantı Hatası';
             }
 
-            // 2. Uydu Sayısı (Count)
             try {
-                const countRes = await fetch(`${API_BASE}/tle/count`); // Backend'de bu endpoint olmalı
+                const countRes = await fetch(`${API_BASE}/tle/count`);
                 const countData = await countRes.json();
                 document.getElementById('stat-sat-count').innerText = countData.count ? countData.count.toLocaleString() : "--";
             } catch(e) {
                  document.getElementById('stat-sat-count').innerText = "--";
             }
 
-            // 3. Kritik Riskler (Alert Count) ve Tablo
             try {
                 const resAlert = await fetch(`${API_BASE}/conjunctions/alerts?limit=5`);
                 const alerts = await resAlert.json();

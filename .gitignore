@@ -1,0 +1,24 @@
+# Sanal Ortamlar
+.venv/
+.env
+
+# Python Dosyaları
+__pycache__/
+*.pyc
+*.log
+venv/
+
+# Veri Dosyaları
+# Proje veritabanı dosyası
+data/astm.db
+
+# IDE Klasörleri
+.idea/
+.vscode/
+
+# Notebook Çıktıları
+.ipynb_checkpoints
+/notebooks/*.html
+
+# Diğer
+node_modules/
