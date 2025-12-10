@@ -1,7 +1,10 @@
 # ASTM-PROTOTYPE: Uzay Trafik Kontrol ve Çarpışma Yönetimi
 
-Bu proje Alçak Dünya Yörüngesi (LEO) uydularının çarpışma risklerini (Conjunction Assessment) yönetmek ve optimal kaçınma manevralarını planlamak için geliştirilmiş bir sistemdir.
-Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üzerine kurulmuştur. Frontend ise etkileşimli bir Dashboard, Uydu Kataloğu ve Canlı Harita Görselleştirmesi sunan modern bir HTML/JavaScript arayüzüdür.
+**<em>Bu proje Türkiye Uzay Ajansı'nın Milli Uzay Programı'nda belirtilen 'Uzay Nesnelerinin Yerden Gözlemi ve Takibi' (Hedef 7) stratejisi doğrultusunda; ülkemizin uzay trafik yönetimi alanındaki yazılım kabiliyetini artırmak, yerli ve milli karar destek mekanizmaları geliştirmek amacıyla tasarlanmış bir Ar-Ge prototipidir.</em>**
+
+Proje; Alçak Dünya Yörüngesi (LEO) uydularının çarpışma risklerini (Conjunction Assessment) yönetmek ve optimal kaçınma manevralarını planlar. 
+Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üzerine kurulmuştur. 
+Frontend ise etkileşimli bir Dashboard, Uydu Kataloğu ve Canlı Harita Görselleştirmesi sunan modern bir HTML/JavaScript arayüzüdür.
 
 ![ASTM](dashboard/assets/img/sat2.jpg "Main")
 
@@ -25,7 +28,8 @@ Backend, hesaplama yoğunluklu uzay mekaniği görevlerini yöneten FastAPI üze
 * **Manevra Planlama Modalı:** Seçilen bir çarpışma uyarısı için, hedeflenen güvenli mesafeye ulaşmak için gereken optimal DeltaV değerlerini gösteren etkileşimli bir arayüz sunar.
 
 ### ASTM-Demo Örneği
-![ASTM](docs/astm-demo.gif "ASTM Demo Gif")
+![ASTM Prototip Demo](docs/astm-demo.gif)
+Daha fazla bilgi ve demo videosuna ```docs``` dizininden ulaşabilirsiniz.
 
 ## Kurulum ve Çalıştırma
 
