@@ -28,9 +28,6 @@ Frontend ise etkileşimli bir Dashboard, Uydu Kataloğu ve Canlı Harita Görsel
 * **Manevra Planlama Modalı:** Seçilen bir çarpışma uyarısı için, hedeflenen güvenli mesafeye ulaşmak için gereken optimal DeltaV değerlerini gösteren etkileşimli bir arayüz sunar.
 
 ### ASTM-Demo Örneği
-
-### ASTM-Demo Örneği
-
 [![ASTM Demo Video](docs/Screenshots/dashboard.png)](https://vimeo.com/1145363572)
 > *Demoyu izlemek için yukarıdaki görsele tıklayınız.*
 Demo videosuna ve rapora ```docs``` dizininden ulaşabilirsiniz. Demo videosunu görüntülemek için ```view raw``` seçeneğine basıp videoyu indirebilirsiniz.
