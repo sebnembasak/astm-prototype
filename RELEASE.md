@@ -49,4 +49,6 @@ Uyduları coğrafi veya politik etiketlerden bağımsız, sadece fiziksel yerle�
 * **SSA Dashboard:** Uyduların görev tahminlerini ve güven skorlarını gösteren yeni panel.
 * **Radar Chart:** Modelin kapasitesini (Precision, Recall, AUC) görselleştiren dinamik grafik.
 * **Isı Haritası:** Sınıflandırma hatalarını gösteren Confusion Matrix entegrasyonu.
-
+### 5. Kullanım
+Veri setini indirip `data/ucs_database.csv` olarak kaydetmeniz yeterlidir.
+`https://www.kaggle.com/datasets/mexwell/ucs-satellite-database/data`
