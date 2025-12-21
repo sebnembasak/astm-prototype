@@ -31,6 +31,10 @@
 
             if(id === 'conjunctions') loadAlerts();
             if(id === 'map-view' && map) setTimeout(() => map.invalidateSize(), 200);
+            if(id === 'ssa-panel') {
+            fetchAndRenderSSAResults();
+            renderSpaceRegimeHeatmap();
+            }
         }
 
         function showLoading(show, text="İşleniyor...") {
@@ -83,6 +87,13 @@
             container.style.display = 'block';
         }
 
+const CLUSTER_COLORS = {
+    0: '#00f3ff', // LEO - Mavi
+    1: '#ffae00', // MEO - Turuncu
+    2: '#bc13fe', // GEO - Mor
+    3: '#0aff60', // Yüksek Eğiklik - Yeşil
+    4: '#ff0055'  // Diğer - Kırmızı
+};
         async function addSatelliteToMap(id, name, forcedColor = null) {
             if(activeLayers[id]) {
                 alert("Bu uydu zaten haritada ekli!");
@@ -90,6 +101,13 @@
             }
 
             showLoading(true, "Yörünge hesaplanıyor...");
+            const aiRes = await fetch(`${API_BASE}/ssa/prediction/${id}`);
+            const aiData = await aiRes.json();
+            const color =
+                forcedColor ||
+                (aiData && CLUSTER_COLORS[aiData.cluster_id]) ||
+                NEON_COLORS[colorIndex];
+
             try {
                 const metaRes = await fetch(`${API_BASE}/tle/${id}`);
                 const meta = await metaRes.json();
@@ -98,7 +116,6 @@
                 const pathData = await pathRes.json();
 
                 const colorIndex = Object.keys(activeLayers).length % NEON_COLORS.length;
-                const color = forcedColor || NEON_COLORS[colorIndex];
 
                 const latlngs = pathData.map(p => [p.lat, p.lon]);
 
@@ -509,3 +526,232 @@ async function calculateManeuver() {
                  document.getElementById('dashboard-alerts-body').innerHTML = `<tr><td colspan="4" class="text-danger text-center">Veri alınamadı</td></tr>`;
             }
         }
+
+
+    async function trainSSA() {
+        showLoading(true, "Yapay Zeka Modeli Eğitiliyor... (UCS Database)");
+        try {
+            const res = await fetch(`${API_BASE}/ssa/train`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            alert("Başarılı: " + data.message);
+        } catch (e) {
+            console.error("Eğitim Hatası:", e);
+            alert("Model eğitilirken bir hata oluştu. Backend loglarını kontrol edin.");
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function runSSAAnalysis() {
+        showLoading(true, "Yapay Zeka Sınıflandırması Yapılıyor...");
+        try {
+            const res = await fetch(`${API_BASE}/ssa/run-analysis`, { method: 'POST' });
+            const data = await res.json();
+            alert(`Analiz Bitti! ${data.processed_satellites} uydu sınıflandırıldı.`);
+            await fetchAndRenderSSAResults();
+
+        } catch (e) {
+            alert("Hata: " + e);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    // KÜME ANLAMLARI ---
+    const SSA_REGIMES = {
+        0: { name: "LEO - Alçak Yörünge (Trafik Yoğun)", color: "#00f3ff", icon: "fa-layer-group" },
+        1: { name: "MEO - Orta Yörünge (Navigasyon/GPS)", color: "#ffae00", icon: "fa-satellite-dish" },
+        2: { name: "GEO - Yer Sabit (Haberleşme Kuşağı)", color: "#bc13fe", icon: "fa-broadcast-tower" },
+        3: { name: "HEO - Yüksek Eliptik (Askeri/Stratejik)", color: "#0aff60", icon: "fa-shield-alt" },
+        4: { name: "VLEO - Çok Alçak (Atmosfer Sınırı)", color: "#ff0055", icon: "fa-meteor" }
+    };
+
+    async function fetchAndRenderSSAResults() {
+        const tbody = document.getElementById('ssa-results-body');
+        try {
+            const res = await fetch(`${API_BASE}/ssa/results`);
+            const data = await res.json();
+            tbody.innerHTML = "";
+
+            data.forEach(item => {
+                const conf = (item.confidence * 100).toFixed(1);
+                const regime = SSA_REGIMES[item.cluster_id] || { name: "Tanımsız Bölge", color: "#666", icon: "fa-question" };
+                const riskClass = item.decay_risk === 'KRİTİK' ? 'bg-danger animate__animated animate__flash animate__infinite' :
+                                 (item.decay_risk === 'ORTA' ? 'bg-warning text-dark' : 'bg-success opacity-50');
+
+                tbody.innerHTML += `
+                    <tr class="animate__animated animate__fadeIn">
+                        <td>
+                            <div class="fw-bold text-white">
+                                <i class="fas ${item.is_anomaly ? 'fa-exclamation-triangle text-danger' : 'fa-check-shield text-success'} me-2"></i>
+                                ${item.sat_name}
+                            </div>
+                            <div class="small text-info opacity-75">
+                              ${item.predicted_country === 'Bilinmiyor' ? '' : (" " + item.predicted_country || '')}
+                            </div>
+
+                        </td>
+                        <td>
+                            <div class="small" style="color: ${regime.color}">
+                                <i class="fas ${regime.icon} me-1"></i> ${regime.name}
+                            </div>
+                            <div class="font-mono opacity-50" style="font-size: 0.6rem;">Cluster #${item.cluster_id}</div>
+                        </td>
+                        <td><span class="badge border border-info text-info">${item.predicted_category}</span></td>
+                        <td><span class="badge ${riskClass}" style="font-size:0.65rem">${item.decay_risk}</span></td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1 me-2" style="height: 4px; background: rgba(255,255,255,0.1);">
+                                    <div class="progress-bar bg-info" style="width: ${conf}%"></div>
+                                </div>
+                                <small class="font-mono">%${conf}</small>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+        } catch (e) { console.error("SSA Tablo Hatası:", e); }
+    }
+
+
+    function createPredictionBox() {
+        const panel = document.getElementById('sat-details-panel');
+        const div = document.createElement('div');
+        div.id = 'detail-ai-prediction';
+        panel.appendChild(div);
+        return div;
+    }
+
+
+    async function loadPerformanceReport() {
+        try {
+            const res = await fetch(`${API_BASE}/ssa/performance-report`);
+            if (!res.ok) return;
+            const data = await res.json();
+            document.getElementById('performance-report-content').classList.remove('d-none');
+            document.getElementById('report-placeholder').classList.add('d-none');
+            document.getElementById('m-accuracy').innerText = `%${(data.accuracy * 100).toFixed(1)}`;
+            document.getElementById('m-f1').innerText = data.f1_score.toFixed(3);
+            document.getElementById('m-samples').innerText = data.sample_size.toLocaleString();
+
+            // Hata Payı Hesabı
+            const errorRate = ((1 - data.accuracy) * 100).toFixed(1);
+            if(document.getElementById('m-error')) {
+                document.getElementById('m-error').innerText = `%${errorRate}`;
+            }
+
+            const dbStatsContainer = document.getElementById('db-stats-content');
+            if (dbStatsContainer) {
+                dbStatsContainer.innerHTML = `
+                    <div class="d-flex justify-content-between mb-1"><span>Veri Kaynağı:</span><span class="text-info font-mono">UCS Database</span></div>
+                    <div class="d-flex justify-content-between mb-1"><span>Toplam Sınıf:</span><span class="text-info font-mono">${data.classes.length} Birim</span></div>
+                    <div class="d-flex justify-content-between mb-1"><span>Özellik (Features):</span><span class="text-info font-mono">${Object.keys(data.feature_importance).length} Parametre</span></div>
+                    <div class="d-flex justify-content-between"><span>Eğitim Tarihi:</span><span class="text-info font-mono" style="font-size:0.6rem;">${new Date(data.timestamp).toLocaleString()}</span></div>
+                `;
+            }
+
+            const reportBody = document.getElementById('class-report-body');
+            if (reportBody) {
+                reportBody.innerHTML = "";
+                Object.entries(data.classification_report).forEach(([className, metrics]) => {
+                    // 'accuracy', 'macro avg' gibi genel satırları atla, sadece sınıfları al
+                    if (typeof metrics === 'object' && !['accuracy', 'macro avg', 'weighted avg'].includes(className)) {
+                        reportBody.innerHTML += `
+                            <tr class="border-bottom border-secondary border-opacity-10">
+                                <td class="fw-bold text-info" style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${className}">${className}</td>
+                                <td class="font-mono">${metrics.precision.toFixed(2)}</td>
+                                <td class="font-mono text-warning">${metrics.recall.toFixed(2)}</td>
+                                <td class="font-mono text-success">${metrics['f1-score'].toFixed(2)}</td>
+                                <td class="font-mono opacity-50">${metrics.support}</td>
+                            </tr>`;
+                    }
+                });
+            }
+
+            const ctxRadar = document.getElementById('metricsRadarChart').getContext('2d');
+            if(window.radarChartObj) window.radarChartObj.destroy();
+            window.radarChartObj = new Chart(ctxRadar, {
+                type: 'radar',
+                data: {
+                    labels: ['Accuracy', 'F1-Score', 'ROC AUC', 'Recall (Avg)', 'Precision (Avg)'],
+                    datasets: [{
+                        label: 'Performans Değerleri',
+                        data: [
+                            data.accuracy,
+                            data.f1_score,
+                            data.roc_auc,
+                            data.classification_report['macro avg'].recall,
+                            data.classification_report['macro avg'].precision
+                        ],
+                        backgroundColor: 'rgba(0, 243, 255, 0.2)',
+                        borderColor: '#00f3ff',
+                        pointBackgroundColor: '#00f3ff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            min: 0, max: 1,
+                            ticks: { display: false },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            angleLines: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const cmContainer = document.getElementById('cm-container');
+            if (cmContainer) {
+                let cmHtml = '<table class="table table-bordered table-sm text-center m-0" style="border-color: #334155; font-size: 0.65rem;"><thead><tr><th></th>';
+                data.classes.forEach(c => {
+                    const shortName = c.length > 5 ? c.substring(0, 5) + '.' : c;
+                    cmHtml += `<th class="p-1 text-info opacity-75" title="${c}">${shortName}</th>`;
+                });
+                cmHtml += '</tr></thead><tbody>';
+
+                data.confusion_matrix.forEach((row, i) => {
+                    const rowLabel = data.classes[i].length > 5 ? data.classes[i].substring(0, 5) + '.' : data.classes[i];
+                    cmHtml += `<tr><th class="p-1 text-info opacity-75" style="text-align:left" title="${data.classes[i]}">${rowLabel}</th>`;
+                    row.forEach((val, j) => {
+                        // Isı haritası rengi (Doğru tahminler mavi tonlarında, yanlışlar kırmızımsı)
+                        const maxInRow = Math.max(...row) || 1;
+                        const intensity = Math.min(val / maxInRow, 1);
+                        const bgColor = i === j
+                            ? `rgba(0, 243, 255, ${0.1 + intensity * 0.6})`
+                            : (val > 0 ? `rgba(255, 0, 85, ${0.1 + intensity * 0.3})` : 'transparent');
+
+                        cmHtml += `<td style="background: ${bgColor}; color: ${val > 0 ? 'white' : 'rgba(255,255,255,0.1)'}; font-weight: ${i === j ? 'bold' : 'normal'}">${val}</td>`;
+                    });
+                    cmHtml += '</tr>';
+                });
+                cmHtml += '</tbody></table>';
+                cmContainer.innerHTML = cmHtml;
+            }
+
+            const container = document.getElementById("feature-bars");
+            if (container) {
+                container.innerHTML = "";
+                Object.entries(data.feature_importance).sort((a,b) => b[1] - a[1]).forEach(([feat, val]) => {
+                    const pct = (val * 100).toFixed(1);
+                    container.innerHTML += `
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between small text-white mb-1">
+                                <span>${feat}</span>
+                                <span class="text-info fw-bold">%${pct}</span>
+                            </div>
+                            <div class="progress" style="height:5px; background: rgba(255,255,255,0.05)">
+                                <div class="progress-bar bg-info" style="width: ${pct}%; box-shadow: 0 0 10px rgba(0,243,255,0.5)"></div>
+                            </div>
+                        </div>`;
+                });
+            }
+
+        } catch (e) {
+            console.error("Metrik Yükleme Hatası:", e);
+            alert("Teknik rapor yüklenirken bir hata oluştu. Lütfen önce modeli eğitin.");
+        }
+
+    }
