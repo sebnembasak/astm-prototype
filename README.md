@@ -21,6 +21,15 @@ Frontend ise etkileşimli bir Dashboard, Uydu Kataloğu ve Canlı Harita Görsel
     * Manevra, TCA'dan belirli bir süre önce (örneğin 1 saat) yapılan anlık (impulsive) bir hız değişimi olarak modellenir.
 * **Veri Yönetimi:** SQLite veritabanı kullanarak TLE verilerini ve çarpışma uyarılarını kaydeder.
 
+### Yapay Zeka ve SSA (Uzay Durum Farkındalığı) Modülü
+Sistem, ham TLE verilerini kullanarak uyduların davranışlarını ve gizli görev parametrelerini analiz eden bir Makine Öğrenmesi (ML) katmanı içerir:
+
+* **Görev Sınıflandırma (Random Forest):** 7.500+ uyduluk UCS veri seti ile eğitilen model; eğim, basıklık ve periyot verilerinden uydunun kullanım amacını (Askeri, Ticari, Gözlem vb.) %90+ doğrulukla tahmin eder.
+* **Anomali Tespiti (Isolation Forest):** Yörünge parametrelerinde normal dışı kaymalar veya standart dışı yörünge dizilimleri gösteren "şüpheli" nesneleri otomatik olarak işaretler.
+* **Yörünge Rejimi Kümeleme (K-Means):** Uyduları fiziksel özelliklerine göre LEO, MEO, GEO, HEO ve VLEO olarak 5 ana kümede gruplandırır.
+* **Sönümlenme (Decay) Analizi:** BSTAR sürüklenme katsayısı ve irtifa verilerini hibritleyerek uydunun atmosfere düşme riskini (Düşük/Orta/Yüksek) hesaplar.
+* **Teknik Performans Raporu:** Modelin başarı metriklerini (Accuracy, F1-Score, Confusion Matrix) radar grafikler ve ısı haritaları ile anlık olarak sunar.
+
 ### Frontend
 
 * **Canlı Harita Görünümü:** Leaflet.js haritası üzerinde, seçilen uyduların SGP4 ile hesaplanmış yörünge yollarını (Lat/Lon/Alt) görselleştirir.

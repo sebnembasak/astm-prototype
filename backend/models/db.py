@@ -45,6 +45,22 @@ def init_db():
             created_at TEXT
         )
         """)
+
+    curr.execute("""
+        CREATE TABLE IF NOT EXISTS satellite_intelligence (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sat_id INTEGER UNIQUE,
+            predicted_category TEXT,
+            predicted_country TEXT,
+            confidence REAL,
+            cluster_id INTEGER,
+            is_anomaly INTEGER,
+            decay_risk TEXT, 
+            predicted_at TEXT,
+            FOREIGN KEY (sat_id) REFERENCES raw_tles(id)
+        )
+    """)
+
     conn.commit()
     conn.close()
 

@@ -38,6 +38,10 @@
         <div class="nav-item" onclick="showSection('map-view', this)">
             <i class="fas fa-globe-americas"></i> Canlı Harita
         </div>
+        <div class="nav-item" onclick="showSection('ssa-panel', this)">
+            <i class="fas fa-brain"></i> SSA Zekası
+        </div>
+
     </div>
 
     <div class="main-content">
@@ -221,7 +225,119 @@
                 </div>
             </div>
         </div>
-<footer class="mt-auto pt-3 pb-2 animate__animated animate__fadeInUp">
+
+  <div id="ssa-panel" class="content-section d-none animate__animated animate__fadeIn">
+    <h3 class="mb-4 fw-light">Yapay Zeka ile Görev ve Nesne Sınıflandırma</h3>
+    <div class="row g-4">
+        <div class="col-md-12">
+            <div class="card-glass p-4 mb-4">
+                <h6 class="text-info border-bottom border-secondary pb-2 mb-3">Kontrol Paneli</h6>
+                <div class="d-flex gap-3">
+                    <button class="btn btn-outline-info flex-grow-1" onclick="trainSSA()">
+                        <i class="fas fa-microchip me-2"></i>AI Modelini Eğit
+                    </button>
+                    <button class="btn btn-outline-success flex-grow-1" onclick="runSSAAnalysis()">
+                        <i class="fas fa-project-diagram me-2"></i>Kataloğu Sınıflandır
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-12 mt-4">
+                <div class="col-md-12 mt-4"> </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card-glass p-4">
+                <h6 class="text-white mb-3">Sınıflandırma Kataloğu</h6>
+                <div class="table-responsive">
+                    <table class="table table-space">
+                        <thead>
+                            <tr>
+                                <th>Uydu & Sahibi</th>
+                                <th>Yörünge Rejimi</th>
+                                <th>Görev Tahmini</th>
+                                <th>Sönümlenme Riski</th>
+                                <th>Güven</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ssa-results-body">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-12 mb-4">
+        <div class="card-glass border-info border-opacity-25">
+            <div class="card-header-glass d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-microchip me-2"></i>Teknik Performans Raporu</span>
+                <button class="btn btn-sm btn-link text-info" onclick="loadPerformanceReport()">
+                    <i class="fas fa-sync-alt"></i> Raporu Yenile
+                </button>
+            </div>
+    <div id="performance-report-content" class="card-body p-4 d-none">
+        <div class="row text-center mb-4">
+            <div class="col-md-3">
+                <div class="small opacity-50">DOĞRULUK (ACC)</div>
+                <div class="h3 text-info fw-bold" id="m-accuracy">--</div>
+            </div>
+            <div class="col-md-3 border-start border-secondary border-opacity-25">
+                <div class="small opacity-50">F1-SKORU</div>
+                <div class="h3 text-success fw-bold" id="m-f1">--</div>
+            </div>
+            <div class="col-md-3 border-start border-secondary border-opacity-25">
+                <div class="small opacity-50">VERİ (ÖRNEK)</div>
+                <div class="h3 text-white" id="m-samples">--</div>
+            </div>
+        </div>
+
+    <hr class="border-secondary border-opacity-25">
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <h6 class="small text-info mb-3">
+                <i class="fas fa-th me-2"></i>Confusion Matrix (Isı Haritası)
+            </h6>
+            <div id="cm-container"
+                 class="table-responsive small bg-black bg-opacity-20 p-2 rounded border border-secondary border-opacity-10"
+                 style="max-height: 300px;">
+            </div>
+    </div>
+
+    <div class="col-lg-6">
+        <h6 class="small text-info mb-3">
+            <i class="fas fa-chart-line me-2"></i>Model Kapasite Radarı
+        </h6>
+        <canvas id="metricsRadarChart" style="max-height: 250px;"></canvas>
+    </div>
+</div>
+
+
+    <h6 class="small text-info mt-3 mb-2"><i class="fas fa-database me-2"></i>Veritabanı & Özellikler</h6>
+    <div id="db-stats-content" class="p-3 rounded bg-dark bg-opacity-50 small border border-secondary border-opacity-10 animate__animated animate__fadeIn"></div>
+
+    <h6 class="small text-info mt-4 mb-3"><i class="fas fa-microchip me-2"></i>Sınıf Bazlı Detaylı Rapor (Metrik Sömürme)</h6>
+    <div class="table-responsive small" style="max-height: 200px; overflow-y: auto;">
+        <table class="table table-sm table-space text-white">
+            <thead class="sticky-top bg-dark">
+                <tr><th>Sınıf</th><th>Prec.</th><th>Recall</th><th>F1</th><th>Supp.</th></tr>
+            </thead>
+            <tbody id="class-report-body"></tbody>
+        </table>
+    </div>
+
+        <h6 class="small text-info mt-4 mb-3">Özellik Önem Düzeyleri</h6>
+        <div id="feature-bars"></div></div>
+    </div>
+    </div>
+        <div id="report-placeholder" class="p-5 text-center opacity-25 italic">
+            Raporu görmek için modelin eğitilmiş olması gerekir.
+        </div>
+    </div>
+    </div>
+
+        <footer class="mt-auto pt-3 pb-2 animate__animated animate__fadeInUp">
             <div class="card-glass p-3 footer-glass">
                 <div class="row align-items-center justify-content-between">
 
@@ -242,7 +358,6 @@
                 </div>
             </div>
         </footer>
-    </div>
 
     <div class="modal fade" id="maneuverModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -285,6 +400,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="assets/js/main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 
 </body>
