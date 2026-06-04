@@ -11,7 +11,7 @@ from backend.models.db import get_conn, init_db
 # URL yapısı: gp.php?GROUP=<istenen grup>&FORMAT=tle
 CELESTRAK_GROUPS = {
     "stations": "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle",
-    "active":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle",
+    "visual":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=visual&FORMAT=tle",
     "debris":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=debris&FORMAT=tle",
 }
 
@@ -79,13 +79,13 @@ def save_tles(blocks: List[Tuple[str, str, str]], source: str = "celestrak"):
 def fetch_and_store(url: str = None) -> int:
     """url verilirse sadece o kaynaktan, verilmezse tüm gruplardan (stations+active+debris) çeker."""
     init_db()
-    urls = [url] if url else list(CELESTRAK_GROUPS.values())
+    items = [("celestrak", url)] if url else [(name, u) for name, u in CELESTRAK_GROUPS.items()]
     total = 0
-    for u in urls:
+    for group_name, u in items:
         try:
             text = fetch_tle_text(u)
             blocks = parse_tle_block(text)
-            save_tles(blocks, source=u)
+            save_tles(blocks, source=group_name)
             total += len(blocks)
         except Exception as e:
             print(f"Grup alınamadı ({u}): {e}")

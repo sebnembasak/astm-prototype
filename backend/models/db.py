@@ -34,9 +34,12 @@ def init_db():
         curr.execute("ALTER TABLE raw_tles ADD COLUMN norad_id INTEGER")
     except sqlite3.OperationalError:
         pass  # sütun zaten var
+    # Partial index ON CONFLICT ile çalışmıyor; tam UNIQUE index gerekli.
+    # SQLite NULL'ları distinct sayar, yani birden fazla NULL'a izin verir.
+    curr.execute("DROP INDEX IF EXISTS idx_raw_tles_norad_id")
     curr.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_tles_norad_id
-        ON raw_tles(norad_id) WHERE norad_id IS NOT NULL
+        ON raw_tles(norad_id)
     """)
 
     # Conjunction Alerts Tablosu
