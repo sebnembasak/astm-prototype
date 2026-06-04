@@ -68,8 +68,13 @@ class ConjunctionService:
         conn = get_conn()
         cur = conn.cursor()
 
-        # Demo amaçlı her taramada eski alarmları temizliyoruz
-        # Gerçek bir uygulamada burası 'archive' tablosuna taşınmalıdır
+        # Mevcut uyarıları arşive taşı, sonra temizle
+        cur.execute("""
+            INSERT INTO conjunction_alerts_archive
+                (sat1_id, sat2_id, tca, miss_distance_km, rel_velocity_km_s, score, event_type, created_at, archived_at)
+            SELECT sat1_id, sat2_id, tca, miss_distance_km, rel_velocity_km_s, score, event_type, created_at, ?
+            FROM conjunction_alerts
+        """, (datetime.now(timezone.utc).isoformat(),))
         cur.execute("DELETE FROM conjunction_alerts")
         conn.commit()
         saved_count = 0

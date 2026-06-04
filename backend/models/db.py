@@ -57,6 +57,21 @@ def init_db():
         """)
 
     curr.execute("""
+        CREATE TABLE IF NOT EXISTS conjunction_alerts_archive (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sat1_id INTEGER,
+            sat2_id INTEGER,
+            tca TEXT,
+            miss_distance_km REAL,
+            rel_velocity_km_s REAL,
+            score REAL,
+            event_type TEXT DEFAULT 'COLLISION',
+            created_at TEXT,
+            archived_at TEXT
+        )
+    """)
+
+    curr.execute("""
         CREATE TABLE IF NOT EXISTS satellite_intelligence (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sat_id INTEGER UNIQUE,

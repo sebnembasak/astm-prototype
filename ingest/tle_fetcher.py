@@ -9,7 +9,11 @@ import httpx
 from backend.models.db import get_conn, init_db
 
 # URL yapısı: gp.php?GROUP=<istenen grup>&FORMAT=tle
-CELESTRAK_STATIONS = "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle"
+CELESTRAK_GROUPS = {
+    "stations": "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle",
+    "active":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle",
+    "debris":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=debris&FORMAT=tle",
+}
 
 
 def fetch_tle_text(url: str) -> str:
@@ -72,12 +76,20 @@ def save_tles(blocks: List[Tuple[str, str, str]], source: str = "celestrak"):
     conn.close()
 
 
-def fetch_and_store(url: str = CELESTRAK_STATIONS):
+def fetch_and_store(url: str = None) -> int:
+    """url verilirse sadece o kaynaktan, verilmezse tüm gruplardan (stations+active+debris) çeker."""
     init_db()
-    text = fetch_tle_text(url)
-    blocks = parse_tle_block(text)
-    save_tles(blocks)
-    return len(blocks)
+    urls = [url] if url else list(CELESTRAK_GROUPS.values())
+    total = 0
+    for u in urls:
+        try:
+            text = fetch_tle_text(u)
+            blocks = parse_tle_block(text)
+            save_tles(blocks, source=u)
+            total += len(blocks)
+        except Exception as e:
+            print(f"Grup alınamadı ({u}): {e}")
+    return total
 
 
 if __name__ == "__main__":
