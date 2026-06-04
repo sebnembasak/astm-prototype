@@ -16,7 +16,6 @@ httpx>=0.24
 # Development & Testing
 pytest>=7.4
 jupyterlab>=4.4.8
-skyfield~=1.53
 
 joblib~=1.5.3
 scikit-learn~=1.8.0

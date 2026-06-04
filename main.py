@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 # Statik dosyaları servis etmek için gerekli kütüphaneler
@@ -17,10 +18,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS ayarları
+# CORS ayarları — production'da ALLOWED_ORIGINS env değişkeni set edilmeli
+_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+allow_origins = [o.strip() for o in _origins_env.split(",") if o.strip()] or ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Geliştirme ortamında tüm domainlere izin ver
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
