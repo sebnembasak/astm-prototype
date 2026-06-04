@@ -68,23 +68,28 @@ def compute_miss_distance_after_burn(
     r_b = np.array(r_b, dtype=float)
     v_b = np.array(v_b, dtype=float)
 
-    # Manevra v' = v + deltav işlemi
-    v_new = v_b + np.array(dv_km_s, dtype=float)
-    orbit_new = rv_to_orbit(r_b, v_new, burn_time)
-    r_our_tca = propagate_orbit_to(orbit_new, tca_time)
-    # risk oluşturan diğer uydunun TCA anındaki konumunu bul
-    # dieğr uydu manevra yapmadığı için orijinal SGP4 propagator kullanılır
+    # Poliastro sadece DV'nin delta etkisini hesaplamak için kullanılıyor.
+    # Mutlak konum için SGP4 kullanılıyor; böylece LEO'daki J2/drag sapması baseline'ı bozmaz.
+    orbit_base = rv_to_orbit(r_b, v_b, burn_time)
+    orbit_dv = rv_to_orbit(r_b, v_b + np.array(dv_km_s, dtype=float), burn_time)
+    r_kep_base = propagate_orbit_to(orbit_base, tca_time)
+    r_kep_dv = propagate_orbit_to(orbit_dv, tca_time)
+    delta_r = r_kep_dv - r_kep_base  # manevranın saf konum etkisi
+
+    # SGP4 baseline: her iki uydu için gerçek TCA konumları
+    r_our_sgp4, v_our_sgp4 = propagate_func(satrec_our, tca_time)
     r_other_tca, v_other_tca = propagate_func(satrec_target, tca_time)
+    r_our_sgp4 = np.array(r_our_sgp4, dtype=float)
     r_other_tca = np.array(r_other_tca, dtype=float)
+    v_our_sgp4 = np.array(v_our_sgp4, dtype=float)
     v_other_tca = np.array(v_other_tca, dtype=float)
 
+    # Manevra sonrası konum = SGP4 konumu + Keplerian delta
+    r_our_tca = r_our_sgp4 + delta_r
     miss = float(np.linalg.norm(r_other_tca - r_our_tca))
 
-    # Bağıl hız: hedef uydu SGP4'ten, bizim uydumuz poliastro finite diff
-    dt = 1.0
-    r_our_tca_f = propagate_orbit_to(orbit_new, tca_time + timedelta(seconds=dt))
-    v_our_tca = (r_our_tca_f - r_our_tca) / dt
-    rel_vel = float(np.linalg.norm(v_other_tca - v_our_tca))
+    # Bağıl hız: DV etkisi (~0.001 km/s) orbital hıza (~7 km/s) göre küçük, SGP4 hızları kullanılıyor
+    rel_vel = float(np.linalg.norm(v_other_tca - v_our_sgp4))
 
     return miss, rel_vel
 
