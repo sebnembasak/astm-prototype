@@ -1,3 +1,32 @@
+# Release Notes - v1.2.0 (Core Fixes & Data Integrity)
+
+## Genel Bakış
+Bu sürüm yeni özellik eklemez; temel algoritma hatalarını düzeltir, veri katmanını sağlamlaştırır ve işlevselliği genişletir.
+
+## Düzeltmeler ve İyileştirmeler
+
+### Faz 1 — Çekirdek Algoritma Hataları
+- **propagate_satrec_single** artık `(r, v)` tuple döndürüyor. Önceki sürümde hız vektörü atılıyor, tüm çağrı noktaları sonuç olarak 2× SGP4 çağrısıyla finite difference hesaplıyordu. `conjunction.py`, `conjunction_service.py`, `optimizer.py` güncellendi.
+- **SSA özellik uyumsuzluğu giderildi.** `input_raw` içinde `alt` iki kez yazılıyordu (`[incl, ecc, period, alt, alt]`). Artık gerçek `perigee` ve `apogee` ayrı hesaplanıp modele veriliyor; HEO uydularında ML doğruluğu düzeldi.
+- **Kırılgan BSTAR parser silindi.** Negatif ve sıfır değerlerde yanlış sonuç veren özel parser kaldırıldı, `tle_to_satrec().bstar` kullanılıyor.
+
+### Faz 2 — Veri Katmanı Bütünlüğü
+- **TLE duplikasyonu giderildi.** Her `/tle/refresh` çağrısında aynı uydu tekrar INSERT ediliyordu. `raw_tles` tablosuna `norad_id` sütunu ve `UNIQUE` index eklendi; `ON CONFLICT(norad_id) DO UPDATE` ile upsert yapılıyor. Mevcut veritabanları için migration otomatik çalışıyor.
+- **`epoch` alanı artık dolu.** TLE Line 1 `[18:32]` konumundan parse edilerek ISO 8601 formatında kaydediliyor.
+
+### Faz 3 — İşlevsellik Genişletme
+- **Multi-group TLE fetch.** Yalnızca `stations` grubu (~500 nesne) çekiliyordu. `fetch_and_store()` artık `stations + active + debris` gruplarını iterate ediyor (~8000+ nesne). Bir grup hata verirse diğerleri atlanmaz.
+- **Uyarı arşivleme.** Her conjunction taramasında `conjunction_alerts` tablosu tamamen siliniyordu. Yeni `conjunction_alerts_archive` tablosuna `archived_at` damgasıyla taşındıktan sonra siliniyor; geçmiş uyarılar korunuyor.
+
+### Faz 4 — Temizlik ve Güvenlik
+- **`skyfield` bağımlılığı kaldırıldı.** `requirements.txt`'te tanımlıydı ancak hiçbir yerde import edilmiyordu.
+- **CORS yapılandırılabilir hale getirildi.** `allow_origins=["*"]` production için güvensizdi. Artık `ALLOWED_ORIGINS` env değişkeninden okunuyor (virgülle ayrılmış liste); değişken set edilmezse geliştirme kolaylığı için `["*"]` kalıyor.
+
+## Değiştirilen Dosyalar
+`processing/propagate_wrapper.py`, `processing/conjunction.py`, `service/conjunction_service.py`, `service/ssa_service.py`, `planner/optimizer.py`, `ingest/tle_fetcher.py`, `backend/models/db.py`, `main.py`, `requirements.txt`
+
+---
+
 # Release Notes - v1.1.0 (SSA Intelligence Update)
 
 ## Genel Bakış
