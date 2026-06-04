@@ -20,6 +20,7 @@ def init_db():
     curr.execute("""
         CREATE TABLE IF NOT EXISTS raw_tles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            norad_id INTEGER,
             sat_name TEXT,
             line1 TEXT,
             line2 TEXT,
@@ -27,6 +28,15 @@ def init_db():
             source TEXT,
             fetched_at TEXT
         )
+    """)
+    # Migration: mevcut veritabanlarına norad_id sütunu ekle
+    try:
+        curr.execute("ALTER TABLE raw_tles ADD COLUMN norad_id INTEGER")
+    except sqlite3.OperationalError:
+        pass  # sütun zaten var
+    curr.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_tles_norad_id
+        ON raw_tles(norad_id) WHERE norad_id IS NOT NULL
     """)
 
     # Conjunction Alerts Tablosu

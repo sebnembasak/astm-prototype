@@ -10,6 +10,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, classification_report
 from backend.models.db import get_conn
+from processing.propagator import tle_to_satrec
 
 
 class SSAService:
@@ -43,26 +44,6 @@ class SSAService:
             4: "VLEO - Çok Alçak Yörünge"
         }
 
-    def parse_bstar(self, line1):
-        """
-        TLE Line 1 içindeki B* (BSTAR) sürüklenme katsayısını ayrıştırır.
-        Bu değer uydunun atmosferik dirençten ne kadar etkilendiğini gösterir.
-        """
-        try:
-            # Boşlukları temizle ve formatı düzelt (Örn: " 12345-3" -> "0.12345e-3")
-            bstar_str = line1[53:61].strip()
-            if not bstar_str: return 0.0
-
-            # Eğer sonda işaret varsa (-3, +2 gibi) onu ayır
-            sign_pos = -2
-            mantissa = bstar_str[:sign_pos].strip()
-            exponent = bstar_str[sign_pos:].strip()
-
-            val = f"0.{mantissa}e{exponent}"
-            return float(val)
-        except:
-            return 0.0
-
     def train_model(self):
         """
         Kaynak: Union of Concerned Scientists (UCS) Uydu Veri Seti.
@@ -95,7 +76,6 @@ class SSAService:
             # Uydu amacını belirlemede en etkili fiziksel parametreler seçilmiştir:
             # Eğim (Inclination), Basıklık (Eccentricity), Periyot ve İrtifa değerleri.
             features = ['Inclination', 'Eccentricity', 'Period_minutes', 'Perigee', 'Apogee']
-
 
             for col in features:
                 # Veri setindeki virgülleri noktaya çevirip sayısal tipe dönüştürme
@@ -135,7 +115,8 @@ class SSAService:
                 "roc_auc": roc_auc,
                 "confusion_matrix": confusion_matrix(y_test, y_pred).tolist(),
                 "classes": self.label_encoder.classes_.tolist(),
-                "feature_importance": dict(zip(features, self.model.feature_importances_.tolist())),  # Hangi özellik daha önemli?
+                "feature_importance": dict(zip(features, self.model.feature_importances_.tolist())),
+                # Hangi özellik daha önemli?
                 "classification_report": classification_report(y_test, y_pred, output_dict=True),  # Detaylı rapor
                 "sample_size": len(df),
                 "timestamp": datetime.now().isoformat()
@@ -202,12 +183,15 @@ class SSAService:
                 # Fiziksel Parametreler
                 incl = float(line2[8:16])
                 ecc = float("0." + line2[26:33].strip())
-                mm = float(line2[52:63])  # Mean Motion uydunun bir günde dünya etrafında kaç tur attığıdır
-                alt = ((398600.44 / ((mm * 2 * np.pi / 86400) ** 2)) ** (1 / 3)) - 6378.137
-                bstar = self.parse_bstar(line1)
+                mm = float(line2[52:63])  # Mean Motion: günlük tur sayısı
+                semi_major = (398600.44 / ((mm * 2 * np.pi / 86400) ** 2)) ** (1 / 3)
+                alt = semi_major - 6378.137  # ortalama irtifa (decay risk için)
+                perigee = semi_major * (1 - ecc) - 6378.137
+                apogee = semi_major * (1 + ecc) - 6378.137
+                bstar = tle_to_satrec(line1, line2).bstar
 
-                # AI Tahminleri
-                input_raw = np.array([[incl, ecc, 1440 / mm, alt, alt]])
+                # AI Tahminleri — model [Inclination, Eccentricity, Period_min, Perigee, Apogee] ile eğitildi
+                input_raw = np.array([[incl, ecc, 1440 / mm, perigee, apogee]])
                 scaled = self.scaler.transform(input_raw)
 
                 cat = self.label_encoder.inverse_transform(self.model.predict(input_raw))[0]

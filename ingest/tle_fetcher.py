@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Tuple
 import httpx
 from backend.models.db import get_conn, init_db
@@ -39,15 +39,35 @@ def parse_tle_block(text: str) -> List[Tuple[str, str, str]]:
     return blocks
 
 
+def parse_epoch(line1: str) -> str:
+    try:
+        epoch_str = line1[18:32].strip()
+        yy = int(epoch_str[:2])
+        year = 2000 + yy if yy < 57 else 1900 + yy
+        day_frac = float(epoch_str[2:])
+        dt = datetime(year, 1, 1) + timedelta(days=day_frac - 1)
+        return dt.isoformat()
+    except Exception:
+        return ""
+
+
 def save_tles(blocks: List[Tuple[str, str, str]], source: str = "celestrak"):
     conn = get_conn()
     cur = conn.cursor()
     now = datetime.utcnow().isoformat()
     for name, line1, line2 in blocks:
-        # Todo: ilerleyen sürümlerde bu gibi yerler enjeksiyon için daha güvenilir hale getirilecek
-        cur.execute(
-            "INSERT INTO raw_tles (sat_name, line1, line2, epoch, source, fetched_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (name, line1, line2, "", source, now))
+        norad_id = int(line1[2:7])
+        epoch = parse_epoch(line1)
+        cur.execute("""
+            INSERT INTO raw_tles (norad_id, sat_name, line1, line2, epoch, source, fetched_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(norad_id) DO UPDATE SET
+                sat_name=excluded.sat_name,
+                line1=excluded.line1,
+                line2=excluded.line2,
+                epoch=excluded.epoch,
+                fetched_at=excluded.fetched_at
+        """, (norad_id, name, line1, line2, epoch, source, now))
     conn.commit()
     conn.close()
 

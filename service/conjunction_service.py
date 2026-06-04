@@ -44,9 +44,7 @@ class ConjunctionService:
             try:
                 st = tle_to_satrec(sat["line1"], sat["line2"])
                 satrecs[sid] = st
-                r = propagate_satrec_single(st, analysis_start_time)
-                r_f = propagate_satrec_single(st, analysis_start_time + timedelta(seconds=1))
-                v = (r_f - r) / 1.0
+                r, v = propagate_satrec_single(st, analysis_start_time)
                 states_map[sid] = (r, v)
             except Exception:
                 continue

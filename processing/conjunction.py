@@ -66,10 +66,8 @@ def refine_tca_with_propagator(satrec1, satrec2, epoch, t_est_seconds, propagate
     def dist_sq_offset(dt_offset):
         try:
             t = epoch + timedelta(seconds=(t_est_seconds + dt_offset))
-            # SGP4 çağrılıyor
-            r1 = propagate_func(satrec1, t)
-            r2 = propagate_func(satrec2, t)
-            # Mesafenin karesini döndür
+            r1, _ = propagate_func(satrec1, t)
+            r2, _ = propagate_func(satrec2, t)
             # Karekök işlemi maliyetli olduğu için optimizasyonda kare kullanılır
             return float(np.sum((r2 - r1) ** 2))
         except Exception:
@@ -82,20 +80,12 @@ def refine_tca_with_propagator(satrec1, satrec2, epoch, t_est_seconds, propagate
 
     tca = epoch + timedelta(seconds=(t_est_seconds + res.x))
 
-    # propagasyon
     try:
-        # en iyi tca için konumları tekrar hesapla
-        r1 = propagate_func(satrec1, tca)
-        r2 = propagate_func(satrec2, tca)
-        miss = float(np.linalg.norm(r2 - r1))  # son kesin mesafe
-
-        # bağıl hız hesabı
-        dt = 0.1
-        r1_f = propagate_func(satrec1, tca + timedelta(seconds=dt))
-        r2_f = propagate_func(satrec2, tca + timedelta(seconds=dt))
-        rel_vel = float(np.linalg.norm((r2_f - r1_f - (r2 - r1)) / dt))
+        r1, v1 = propagate_func(satrec1, tca)
+        r2, v2 = propagate_func(satrec2, tca)
+        miss = float(np.linalg.norm(r2 - r1))
+        rel_vel = float(np.linalg.norm(v2 - v1))
     except Exception:
-        # propagasyon hatası olursa güvenli değerler dön
         return tca, 99999.9, 0.0
 
     return tca, miss, rel_vel

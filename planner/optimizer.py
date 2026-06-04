@@ -54,7 +54,7 @@ def propagate_orbit_to(orbit: Orbit, target_dt: datetime) -> np.ndarray:
 def compute_miss_distance_after_burn(
         satrec_target, satrec_our, burn_time: datetime,
         dv_km_s: np.ndarray, tca_time: datetime,
-        propagate_func: Callable[[object, datetime], np.ndarray]
+        propagate_func: Callable[[object, datetime], tuple]
 ) -> Tuple[float, float]:
     """
     Belirli bir DeltaV (dv_km_s) manevrası yapıldığında, TCA anındaki
@@ -64,12 +64,9 @@ def compute_miss_distance_after_burn(
     * yeni yörüngeyi Keplerian (poliastro) ile TCA anına ilerlet.
     """
 
-    # ateşleme anındaki mevcut konum ve hızın bulunması
-    # hız vektörünü bulmak için 1 saniye arayla iki konum alıp farkını alıyoruz (basit türev)
-    # Not: SGP4 kütüphanesinin kendi hız çıktısı da kullanılabilir ama bu yöntem genel geçerdir.
-    r_b = np.array(propagate_func(satrec_our, burn_time), dtype=float)
-    r_b1 = np.array(propagate_func(satrec_our, burn_time + timedelta(seconds=1)), dtype=float)
-    v_b = (r_b1 - r_b) / 1.0
+    r_b, v_b = propagate_func(satrec_our, burn_time)
+    r_b = np.array(r_b, dtype=float)
+    v_b = np.array(v_b, dtype=float)
 
     # Manevra v' = v + deltav işlemi
     v_new = v_b + np.array(dv_km_s, dtype=float)
@@ -77,17 +74,17 @@ def compute_miss_distance_after_burn(
     r_our_tca = propagate_orbit_to(orbit_new, tca_time)
     # risk oluşturan diğer uydunun TCA anındaki konumunu bul
     # dieğr uydu manevra yapmadığı için orijinal SGP4 propagator kullanılır
-    r_other_tca = np.array(propagate_func(satrec_target, tca_time), dtype=float)
+    r_other_tca, v_other_tca = propagate_func(satrec_target, tca_time)
+    r_other_tca = np.array(r_other_tca, dtype=float)
+    v_other_tca = np.array(v_other_tca, dtype=float)
 
-    # iki konum arasındaki öklid mesafesini (miss distance) hesapla
     miss = float(np.linalg.norm(r_other_tca - r_our_tca))
 
-    # Bağıl hız hesabı
-    # TCAdan 1 sn sonrasına bakarak hız vektörlerini tahmin et
+    # Bağıl hız: hedef uydu SGP4'ten, bizim uydumuz poliastro finite diff
     dt = 1.0
     r_our_tca_f = propagate_orbit_to(orbit_new, tca_time + timedelta(seconds=dt))
-    r_other_tca_f = np.array(propagate_func(satrec_target, tca_time + timedelta(seconds=dt)), dtype=float)
-    rel_vel = float(np.linalg.norm((r_other_tca_f - r_other_tca) - (r_our_tca_f - r_our_tca)) / dt)
+    v_our_tca = (r_our_tca_f - r_our_tca) / dt
+    rel_vel = float(np.linalg.norm(v_other_tca - v_our_tca))
 
     return miss, rel_vel
 
@@ -98,7 +95,7 @@ def find_minimal_dv(
         satrec_our,
         burn_time: datetime,
         tca_time: datetime,
-        propagate_func: Callable[[object, datetime], np.ndarray],
+        propagate_func: Callable[[object, datetime], tuple],
         target_miss_km: float = 2.0,  # hedeflenen güvenli mesafe (örn: 2 km)
         dv_bound_km_s: float = 0.001,  # izin verilen max deltav
         penalty_lambda: float = 1e6,  # ceza katsayısı
