@@ -45,7 +45,7 @@ async def get_ssa_prediction(sat_id: int):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
-        "SELECT predicted_category as category, confidence FROM satellite_intelligence WHERE sat_id = ? ORDER BY predicted_at DESC LIMIT 1",
+        "SELECT predicted_category as category, confidence, cluster_id FROM satellite_intelligence WHERE sat_id = ? ORDER BY predicted_at DESC LIMIT 1",
         (sat_id,))
     row = cur.fetchone()
     conn.close()

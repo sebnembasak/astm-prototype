@@ -101,21 +101,24 @@ const CLUSTER_COLORS = {
             }
 
             showLoading(true, "Yörünge hesaplanıyor...");
-            const aiRes = await fetch(`${API_BASE}/ssa/prediction/${id}`);
-            const aiData = await aiRes.json();
-            const color =
-                forcedColor ||
-                (aiData && CLUSTER_COLORS[aiData.cluster_id]) ||
-                NEON_COLORS[colorIndex];
-
             try {
+                const colorIndex = Object.keys(activeLayers).length % NEON_COLORS.length;
+                let color = forcedColor;
+                if (!color) {
+                    try {
+                        const aiRes = await fetch(`${API_BASE}/ssa/prediction/${id}`);
+                        const aiData = aiRes.ok ? await aiRes.json() : null;
+                        color = (aiData && aiData.cluster_id != null && CLUSTER_COLORS[aiData.cluster_id]) || NEON_COLORS[colorIndex];
+                    } catch(e) {
+                        color = NEON_COLORS[colorIndex];
+                    }
+                }
+
                 const metaRes = await fetch(`${API_BASE}/tle/${id}`);
                 const meta = await metaRes.json();
 
                 const pathRes = await fetch(`${API_BASE}/orbit/propagate/${id}?duration_minutes=100&step_seconds=60`);
                 const pathData = await pathRes.json();
-
-                const colorIndex = Object.keys(activeLayers).length % NEON_COLORS.length;
 
                 const latlngs = pathData.map(p => [p.lat, p.lon]);
 
