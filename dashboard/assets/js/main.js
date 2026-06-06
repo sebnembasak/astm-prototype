@@ -17,26 +17,38 @@
 
         function startRealtimeTracking() {
             if (realtimeInterval) return;
-            realtimeInterval = setInterval(() => {  // 10s interval, 10s adımlarla uyumlu
+            realtimeInterval = setInterval(() => {
                 const now = Date.now();
                 Object.entries(activeLayers).forEach(([id, layer]) => {
                     if (!layer.pathData || !layer.marker) return;
-                    let closest = null, minDiff = Infinity;
-                    layer.pathData.forEach(p => {
-                        const diff = Math.abs(new Date(p.time).getTime() - now);
-                        if (diff < minDiff) { minDiff = diff; closest = p; }
-                    });
-                    if (closest) {
-                        layer.marker.setLatLng([closest.lat, closest.lon]);
-                        layer.marker.setPopupContent(
-                            `<strong>${layer.meta.sat_name}</strong><br>` +
-                            `Anlık: ${closest.lat.toFixed(3)}°, ${closest.lon.toFixed(3)}°<br>` +
-                            `Yükseklik: ${closest.alt_km.toFixed(1)} km<br>` +
-                            `<span class="text-muted" style="font-size:0.8em">${new Date(closest.time).toLocaleTimeString()}</span>`
-                        );
+                    const data = layer.pathData;
+
+                    // İki ardışık nokta arasında now'u bul
+                    let i = 0;
+                    for (; i < data.length - 1; i++) {
+                        if (new Date(data[i + 1].time).getTime() >= now) break;
                     }
+                    const p0 = data[i];
+                    const p1 = data[Math.min(i + 1, data.length - 1)];
+
+                    // p0 ile p1 arasında doğrusal interpolasyon (0..1)
+                    const t0 = new Date(p0.time).getTime();
+                    const t1 = new Date(p1.time).getTime();
+                    const frac = t1 > t0 ? Math.min((now - t0) / (t1 - t0), 1) : 0;
+
+                    const lat = p0.lat + frac * (p1.lat - p0.lat);
+                    const lon = p0.lon + frac * (p1.lon - p0.lon);
+                    const alt = p0.alt_km + frac * (p1.alt_km - p0.alt_km);
+
+                    layer.marker.setLatLng([lat, lon]);
+                    layer.marker.setPopupContent(
+                        `<strong>${layer.meta.sat_name}</strong><br>` +
+                        `Anlık: ${lat.toFixed(3)}°, ${lon.toFixed(3)}°<br>` +
+                        `Yükseklik: ${alt.toFixed(1)} km<br>` +
+                        `<span class="text-muted" style="font-size:0.8em">${new Date(now).toLocaleTimeString()}</span>`
+                    );
                 });
-            }, 10000);
+            }, 1000);
         }
 
         function stopRealtimeTracking() {
