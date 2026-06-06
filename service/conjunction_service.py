@@ -57,6 +57,7 @@ class ConjunctionService:
         ANALYTIC_WINDOW = 7200.0  # 2 saatlik bir pencereye bakacağız
         RADIUS_KM = 300.0  # Sadece birbirine 300km yakın olanlar incelenecek
         COLLISION_SAVE_THRESHOLD_KM = 150.0  # 150 km den uzaksa veritabanına kaydedilmeyecek
+        COLLISION_MIN_SCORE = 0.05           # score < %5 olan alertler gürültü, kaydedilmez
 
         # sadece konum verilerini (r) alarak KD-Tree ye veriyoruz
         positions_map = {k: v[0] for k, v in states_map.items()}
@@ -114,7 +115,7 @@ class ConjunctionService:
             elif conj.event_type == "COLLISION":
                 # Score > 0 demek belirli bir risk var demek
                 # Ayrıca mesafe eşiğinin (150 km) altında olmalı
-                if conj.score > 0 and conj.miss_distance_km < COLLISION_SAVE_THRESHOLD_KM:
+                if conj.score >= COLLISION_MIN_SCORE and conj.miss_distance_km < COLLISION_SAVE_THRESHOLD_KM:
                     should_save = True
 
             if should_save:

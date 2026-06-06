@@ -472,6 +472,7 @@ async function calculateManeuver() {
                 const data = await res.json();
                 alert(`Analiz Bitti. İşlenen: ${data.processed_pairs}`);
                 loadAlerts();
+                loadDashboardStats();
             } catch(e) { alert(e); }
             finally { showLoading(false); }
         }
