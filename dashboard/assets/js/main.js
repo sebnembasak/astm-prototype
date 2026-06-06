@@ -14,6 +14,7 @@
         let selectedAlert = null;
         let searchTimeout;
         let realtimeInterval = null;
+        let colorCounter = 0;
 
         function startRealtimeTracking() {
             if (realtimeInterval) return;
@@ -143,17 +144,8 @@ const CLUSTER_COLORS = {
 
             showLoading(true, "Yörünge hesaplanıyor...");
             try {
-                const colorIndex = Object.keys(activeLayers).length % NEON_COLORS.length;
-                let color = forcedColor;
-                if (!color) {
-                    try {
-                        const aiRes = await fetch(`${API_BASE}/ssa/prediction/${id}`);
-                        const aiData = aiRes.ok ? await aiRes.json() : null;
-                        color = (aiData && aiData.cluster_id != null && CLUSTER_COLORS[aiData.cluster_id]) || NEON_COLORS[colorIndex];
-                    } catch(e) {
-                        color = NEON_COLORS[colorIndex];
-                    }
-                }
+                const color = forcedColor || NEON_COLORS[colorCounter % NEON_COLORS.length];
+                colorCounter++;
 
                 const metaRes = await fetch(`${API_BASE}/tle/${id}`);
                 const meta = await metaRes.json();
@@ -211,6 +203,7 @@ const CLUSTER_COLORS = {
 
         function clearMap() {
             stopRealtimeTracking();
+            colorCounter = 0;
             Object.keys(activeLayers).forEach(id => removeSatellite(id));
             map.eachLayer(layer => {
                 if (layer instanceof L.Marker || layer instanceof L.Polyline) {
