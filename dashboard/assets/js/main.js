@@ -17,7 +17,7 @@
 
         function startRealtimeTracking() {
             if (realtimeInterval) return;
-            realtimeInterval = setInterval(() => {
+            realtimeInterval = setInterval(() => {  // 10s interval, 10s adımlarla uyumlu
                 const now = Date.now();
                 Object.entries(activeLayers).forEach(([id, layer]) => {
                     if (!layer.pathData || !layer.marker) return;
@@ -36,7 +36,7 @@
                         );
                     }
                 });
-            }, 15000);
+            }, 10000);
         }
 
         function stopRealtimeTracking() {
@@ -146,7 +146,7 @@ const CLUSTER_COLORS = {
                 const metaRes = await fetch(`${API_BASE}/tle/${id}`);
                 const meta = await metaRes.json();
 
-                const pathRes = await fetch(`${API_BASE}/orbit/propagate/${id}?duration_minutes=100&step_seconds=60`);
+                const pathRes = await fetch(`${API_BASE}/orbit/propagate/${id}?duration_minutes=100&step_seconds=10`);
                 const pathData = await pathRes.json();
 
                 const latlngs = pathData.map(p => [p.lat, p.lon]);
