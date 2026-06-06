@@ -13,6 +13,35 @@
         let activeLayers = {};
         let selectedAlert = null;
         let searchTimeout;
+        let realtimeInterval = null;
+
+        function startRealtimeTracking() {
+            if (realtimeInterval) return;
+            realtimeInterval = setInterval(() => {
+                const now = Date.now();
+                Object.entries(activeLayers).forEach(([id, layer]) => {
+                    if (!layer.pathData || !layer.marker) return;
+                    let closest = null, minDiff = Infinity;
+                    layer.pathData.forEach(p => {
+                        const diff = Math.abs(new Date(p.time).getTime() - now);
+                        if (diff < minDiff) { minDiff = diff; closest = p; }
+                    });
+                    if (closest) {
+                        layer.marker.setLatLng([closest.lat, closest.lon]);
+                        layer.marker.setPopupContent(
+                            `<strong>${layer.meta.sat_name}</strong><br>` +
+                            `Anlık: ${closest.lat.toFixed(3)}°, ${closest.lon.toFixed(3)}°<br>` +
+                            `Yükseklik: ${closest.alt_km.toFixed(1)} km<br>` +
+                            `<span class="text-muted" style="font-size:0.8em">${new Date(closest.time).toLocaleTimeString()}</span>`
+                        );
+                    }
+                });
+            }, 15000);
+        }
+
+        function stopRealtimeTracking() {
+            if (realtimeInterval) { clearInterval(realtimeInterval); realtimeInterval = null; }
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
@@ -129,19 +158,26 @@ const CLUSTER_COLORS = {
                     smoothFactor: 1
                 }).addTo(map);
 
-                const endPt = latlngs[latlngs.length - 1];
+                const currentPt = latlngs[0];
+                const currentData = pathData[0];
                 const icon = L.divIcon({
                     className: 'custom-icon',
-                    html: `<div style="width:12px;height:12px;background:${color};border-radius:50%;box-shadow:0 0 10px ${color};border:2px solid white;"></div>`,
-                    iconSize: [12, 12]
+                    html: `<div style="width:14px;height:14px;background:${color};border-radius:50%;box-shadow:0 0 12px ${color};border:2px solid white;animation:pulse 1.5s infinite;"></div>`,
+                    iconSize: [14, 14]
                 });
-                const marker = L.marker(endPt, {icon: icon}).addTo(map)
-                    .bindPopup(`<strong>${name}</strong><br>Lat: ${endPt[0].toFixed(2)}, Lon: ${endPt[1].toFixed(2)}`);
+                const marker = L.marker(currentPt, {icon: icon}).addTo(map)
+                    .bindPopup(
+                        `<strong>${name}</strong><br>` +
+                        `Anlık: ${currentPt[0].toFixed(3)}°, ${currentPt[1].toFixed(3)}°<br>` +
+                        `Yükseklik: ${currentData.alt_km.toFixed(1)} km<br>` +
+                        `<span class="text-muted" style="font-size:0.8em">${new Date(currentData.time).toLocaleTimeString()}</span>`
+                    );
 
                 activeLayers[id] = { polyline, marker, color, meta, pathData };
                 updateActiveSatList();
                 map.fitBounds(polyline.getBounds(), {padding: [50, 50]});
                 showSatDetails(id);
+                startRealtimeTracking();
 
             } catch(e) {
                 alert("Hata: " + e);
@@ -157,10 +193,12 @@ const CLUSTER_COLORS = {
                 delete activeLayers[id];
                 updateActiveSatList();
                 document.getElementById('sat-details-panel').classList.add('d-none');
+                if (Object.keys(activeLayers).length === 0) stopRealtimeTracking();
             }
         }
 
         function clearMap() {
+            stopRealtimeTracking();
             Object.keys(activeLayers).forEach(id => removeSatellite(id));
             map.eachLayer(layer => {
                 if (layer instanceof L.Marker || layer instanceof L.Polyline) {
