@@ -155,7 +155,22 @@ const CLUSTER_COLORS = {
 
                 const latlngs = pathData.map(p => [p.lat, p.lon]);
 
-                const polyline = L.polyline(latlngs, {
+                // Anti-meridyen (±180°) geçişlerinde tek bir noktadan diğerine
+                // doğrudan çizgi çekmek haritayı boydan boya kesen sahte segmentler
+                // oluşturuyordu. Ardışık noktalar arasındaki boylam farkı 180°'yi
+                // aşınca yörüngeyi ayrı segmentlere bölüyoruz; L.polyline bir
+                // segment dizisi (multi-polyline) verildiğinde aralarına çizgi çekmez.
+                const segments = [[latlngs[0]]];
+                for (let i = 1; i < latlngs.length; i++) {
+                    const prevLon = latlngs[i - 1][1];
+                    const currLon = latlngs[i][1];
+                    if (Math.abs(currLon - prevLon) > 180) {
+                        segments.push([]);
+                    }
+                    segments[segments.length - 1].push(latlngs[i]);
+                }
+
+                const polyline = L.polyline(segments, {
                     color: color,
                     weight: 3,
                     opacity: 0.8,
