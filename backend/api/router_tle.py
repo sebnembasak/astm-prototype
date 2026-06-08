@@ -18,6 +18,17 @@ class TLEUpdateResponse(BaseModel):
     count: int
 
 
+class TLEHistoryEntrySchema(BaseModel):
+    norad_id: Optional[int]
+    sat_name: Optional[str]
+    line1: str
+    line2: str
+    epoch: Optional[str]
+    source: Optional[str]
+    fetched_at: Optional[str]
+    archived_at: Optional[str]
+
+
 @router.post("/refresh", response_model=TLEUpdateResponse)
 async def refresh_tles():
     """Celestraktan TLE verilerini çeker ve veritabanını günceller."""
@@ -46,6 +57,15 @@ async def search_satellites(q: str = Query(..., min_length=2)):
     """Uydu ismine göre arama yapar."""
     results = tle_service.search_satellites(q)
     return results
+
+
+@router.get("/history/{sat_id}", response_model=List[TLEHistoryEntrySchema])
+async def get_tle_history(sat_id: int):
+    """Bir uydunun epoch'a göre sıralı geçmiş + güncel TLE'lerini döner (manevra tespiti için)."""
+    history = tle_service.get_tle_history(sat_id)
+    if not history:
+        raise HTTPException(status_code=404, detail="Uydu bulunamadı")
+    return history
 
 
 # --- Bu ID endpointi en sonda olmalı

@@ -65,6 +65,40 @@ class TleService:
             return dict(row)
         return None
 
+    def get_tle_history(self, sat_id: int) -> List[Dict[str, Any]]:
+        """
+        Bir uydunun arşivlenmiş geçmiş TLE'lerini + güncel TLE'sini epoch'a göre
+        artan sırada döner. Manevra tespiti (Faz 3) bu zaman serisini ardışık
+        epoch'lar arasındaki orbital element farkını incelemek için kullanacak.
+        """
+        sat = self.get_satellite_by_id(sat_id)
+        if not sat:
+            return []
+
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT norad_id, sat_name, line1, line2, epoch, source, fetched_at, archived_at
+            FROM tle_history
+            WHERE norad_id = ?
+            ORDER BY epoch ASC
+        """, (sat["norad_id"],))
+        history = [dict(row) for row in cur.fetchall()]
+        conn.close()
+
+        # Güncel TLE'yi de zaman serisinin son elemanı olarak ekle
+        history.append({
+            "norad_id": sat["norad_id"],
+            "sat_name": sat["sat_name"],
+            "line1": sat["line1"],
+            "line2": sat["line2"],
+            "epoch": sat["epoch"],
+            "source": sat["source"],
+            "fetched_at": sat["fetched_at"],
+            "archived_at": None,
+        })
+        return history
+
     def get_satrec_by_id(self, sat_id: int):
         """Hesaplamalar için doğrudan sgp4 Satrec nesnesi döner."""
         sat_data = self.get_satellite_by_id(sat_id)

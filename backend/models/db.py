@@ -74,6 +74,27 @@ def init_db():
         )
     """)
 
+    # TLE Geçmişi: bir uydunun epoch'u değiştiğinde (yani yeni bir yörünge
+    # tahmini geldiğinde) eski TLE buraya arşivlenir. Manevra tespiti (Faz 3)
+    # için ardışık epoch'lar arasındaki orbital element farkına bakılacak.
+    curr.execute("""
+        CREATE TABLE IF NOT EXISTS tle_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            norad_id INTEGER,
+            sat_name TEXT,
+            line1 TEXT,
+            line2 TEXT,
+            epoch TEXT,
+            source TEXT,
+            fetched_at TEXT,
+            archived_at TEXT
+        )
+    """)
+    curr.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tle_history_norad_epoch
+        ON tle_history(norad_id, epoch)
+    """)
+
     curr.execute("""
         CREATE TABLE IF NOT EXISTS satellite_intelligence (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

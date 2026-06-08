@@ -62,6 +62,20 @@ def save_tles(blocks: List[Tuple[str, str, str]], source: str = "celestrak"):
     for name, line1, line2 in blocks:
         norad_id = int(line1[2:7])
         epoch = parse_epoch(line1)
+
+        # Mevcut kayıt farklı bir epoch'a sahipse (= gerçekten yeni bir yörünge
+        # tahmini geldi), üzerine yazmadan önce eski hâlini geçmişe arşivle.
+        # Aynı epoch tekrar geldiyse (refresh ama yeni veri yok) arşivlemiyoruz,
+        # yoksa tle_history anlamsız tekrar kayıtlarla şişer.
+        cur.execute("SELECT sat_name, line1, line2, epoch, source, fetched_at FROM raw_tles WHERE norad_id = ?", (norad_id,))
+        existing = cur.fetchone()
+        if existing and existing["epoch"] != epoch:
+            cur.execute("""
+                INSERT INTO tle_history (norad_id, sat_name, line1, line2, epoch, source, fetched_at, archived_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (norad_id, existing["sat_name"], existing["line1"], existing["line2"],
+                  existing["epoch"], existing["source"], existing["fetched_at"], now))
+
         cur.execute("""
             INSERT INTO raw_tles (norad_id, sat_name, line1, line2, epoch, source, fetched_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
