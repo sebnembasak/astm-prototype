@@ -77,13 +77,41 @@ class SSAService:
             # Eğim (Inclination), Basıklık (Eccentricity), Periyot ve İrtifa değerleri.
             features = ['Inclination', 'Eccentricity', 'Period_minutes', 'Perigee', 'Apogee']
 
-            for col in features:
-                # Veri setindeki virgülleri noktaya çevirip sayısal tipe dönüştürme
-                df[col] = df[col].astype(str).str.replace(',', '').str.replace('"', '')
+            # UCS verisi Avrupa ondalık formatında ('96,08' = 96.08). Virgülü SİLMEK
+            # (eski .replace(',', '')) değeri 9608'e bozar — burada nokta ile değiştirip
+            # gerçek ondalık değeri koruyoruz.
+            for col in ['Inclination', 'Eccentricity', 'Period_minutes']:
+                df[col] = df[col].astype(str).str.replace(',', '.').str.replace('"', '')
                 df[col] = pd.to_numeric(df[col], errors='coerce')
 
-            # Eksik verileri (NaN) temizle ve hedef değişkeni etiketle
-            df = df[['Purpose'] + features].dropna()
+            df = df[['Purpose', 'Inclination', 'Eccentricity', 'Period_minutes']].dropna()
+
+            # Fiziksel olarak imkansız periyotları ele: Dünya yüzeyinde dahi bir yörüngenin
+            # periyodu ~84.4 dakikadan kısa olamaz (çevresel hız sınırı). Bunun altındaki
+            # satırlar UCS'deki veri girişi hatalarıdır.
+            df = df[df['Period_minutes'] > 84.4]
+
+            # Kapalı (eliptik) bir yörüngede dış merkezlik [0, 1) aralığında olmalıdır;
+            # 1'in üzeri açık/hiperbolik kaçış yörüngesi demektir ve bir "uydu" için
+            # imkansızdır. UCS verisinde bazı satırlarda üs işareti ters yazılmış
+            # (ör. '5,11E+02' = 511 — gerçekte muhtemelen '5.11E-02' = 0.0511 olmalıydı),
+            # bu satırlar Kepler türetimini milyonlarca km'lik aşırı uçlarla kirletiyor.
+            df = df[df['Eccentricity'] < 1]
+
+            # Perigee/Apogee'yi CSV'den okumak yerine Period + Eccentricity'den Kepler'in
+            # 3. Kanunu ile türetiyoruz. Sebep: CSV'deki "Perigee (km)"/"Apogee (km)" sütunları
+            # belirsiz biçimlendirilmiş — büyük değerler '.' karakterini binlik ayraç olarak
+            # kullanıyor (ör. GEO için '35.778' aslında 35.778 km değil 35.778 km'dir, yani
+            # 35778 km demektir) ama pandas bunu ondalık nokta sanıp ~1000x küçük okuyor.
+            # Kepler ile türetmek hem bu belirsizliği tamamen baypas eder hem de canlı TLE
+            # analizindeki (analyze_all_satellites) hesaplama yöntemiyle birebir tutarlı hale
+            # getirerek eğitim/çıkarım dağılım uyuşmazlığını giderir.
+            mu, Re = 398600.4418, 6378.137
+            semi_major = (mu * (df['Period_minutes'] * 60 / (2 * np.pi)) ** 2) ** (1 / 3)
+            df['Perigee'] = semi_major * (1 - df['Eccentricity']) - Re
+            df['Apogee'] = semi_major * (1 + df['Eccentricity']) - Re
+
+            df = df.dropna(subset=features)
 
             # Eğitim kararlılığı için sadece 1 örneği olan nadir sınıfları çıkarıyoruz
             df = df[df.groupby('Purpose')['Purpose'].transform('count') > 1]
@@ -104,9 +132,13 @@ class SSAService:
             y_prob = self.model.predict_proba(X_test)
 
             try:
-                # Çok sınıflı ROC-AUC skoru
-                roc_auc = roc_auc_score(y_test, y_prob, multi_class='ovr', average='weighted')
-            except:
+                # Çok sınıflı ROC-AUC skoru. `labels` zorunlu: 21 sınıftan bazılarının
+                # (ör. 2 örnekli "Mission Extension Technology") stratified split sonrası
+                # y_test'te hiç temsilcisi kalmayabiliyor; labels olmadan sklearn y_true'daki
+                # benzersiz sınıf sayısını y_score sütun sayısıyla eşleşmeyince ValueError atıyor.
+                roc_auc = roc_auc_score(y_test, y_prob, multi_class='ovr', average='weighted',
+                                        labels=np.arange(len(self.label_encoder.classes_)))
+            except Exception:
                 roc_auc = 0.0
 
             metrics = {
@@ -246,16 +278,19 @@ class SSAService:
     def get_regime_heatmap_data(self):
         conn = get_conn()
         cur = conn.cursor()
-        cur.execute("SELECT line2 FROM raw_tles")
+        cur.execute("""
+            SELECT r.line2, si.cluster_id
+            FROM raw_tles r
+            LEFT JOIN satellite_intelligence si ON si.sat_id = r.id
+        """)
         data = []
-        for row in cur.fetchall():
+        for line2, cluster_id in cur.fetchall():
             try:
-                line2 = row[0]
                 incl = float(line2[8:16])
                 mm = float(line2[52:63])
                 alt = ((398600.44 / ((mm * 2 * np.pi / 86400) ** 2)) ** (1 / 3)) - 6378.137
                 if 200 < alt < 40000:
-                    data.append({"x": round(incl, 1), "y": round(alt, -1)})
+                    data.append({"x": round(incl, 1), "y": round(alt, -1), "cluster_id": cluster_id})
             except:
                 continue
         conn.close()

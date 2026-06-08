@@ -676,6 +676,57 @@ async function calculateManeuver() {
         } catch (e) { console.error("SSA Tablo Hatası:", e); }
     }
 
+    async function renderSpaceRegimeHeatmap() {
+        const canvas = document.getElementById('regimeHeatmapChart');
+        if (!canvas) return;
+        try {
+            const res = await fetch(`${API_BASE}/ssa/heatmap`);
+            const points = await res.json();
+
+            // Her noktayı küme rengine göre grupla (henüz sınıflandırılmamışlar gri)
+            const datasets = {};
+            points.forEach(p => {
+                const regime = SSA_REGIMES[p.cluster_id];
+                const key = (p.cluster_id === null || p.cluster_id === undefined) ? 'unknown' : p.cluster_id;
+                if (!datasets[key]) {
+                    datasets[key] = {
+                        label: regime ? regime.name.split(' - ')[0] : 'Sınıflandırılmamış',
+                        data: [],
+                        backgroundColor: regime ? regime.color : 'rgba(255,255,255,0.25)',
+                        pointRadius: 3
+                    };
+                }
+                datasets[key].data.push({ x: p.x, y: p.y });
+            });
+
+            const ctx = canvas.getContext('2d');
+            if (window.heatmapChartObj) window.heatmapChartObj.destroy();
+            window.heatmapChartObj = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets: Object.values(datasets) },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Eğim (derece)', color: 'rgba(255,255,255,0.6)' },
+                            ticks: { color: 'rgba(255,255,255,0.5)' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        y: {
+                            title: { display: true, text: 'İrtifa (km)', color: 'rgba(255,255,255,0.6)' },
+                            ticks: { color: 'rgba(255,255,255,0.5)' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: 'rgba(255,255,255,0.7)', font: { size: 10 } } }
+                    }
+                }
+            });
+        } catch (e) { console.error("Heatmap Hatası:", e); }
+    }
+
 
     function createPredictionBox() {
         const panel = document.getElementById('sat-details-panel');
