@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.mixture import GaussianMixture
+from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, classification_report
@@ -26,6 +27,7 @@ class SSAService:
         self.model = None
         self.cluster_model = None
         self.iso_forest = None
+        self.lof = None
         self.label_encoder = LabelEncoder()  # Kategorik verileri sayısal verilere dönüştürür
         self.scaler = StandardScaler()  # Verileri standart normal dağılıma (0 ortalama, 1 sapma) çeker
 
@@ -158,15 +160,22 @@ class SSAService:
             with open(self.metrics_path, "w") as f:
                 json.dump(metrics, f)
 
-            # Kümeleme (Gaussian Mixture Model) ve Anomali Tespiti (Isolation Forest)
+            # Kümeleme (Gaussian Mixture Model) ve Anomali Tespiti (Isolation Forest + LOF)
             # Veriyi ölçeklendirip uyduları gruplandırıyoruz ve normal dışı olanları yakalıyoruz.
             # KMeans'in sert (hard) küme sınırları yerine GMM her uyduya kümeler üzerinde
             # olasılıksal bir dağılım atar — rejim sınırındaki uydular için daha gerçekçi.
             cluster_model = GaussianMixture(n_components=5, random_state=42).fit(self.scaler.fit_transform(X))
             iso_forest = IsolationForest(contamination=0.03, random_state=42).fit(self.scaler.transform(X))
+            # Isolation Forest global/eksen-hizalı bölünmelerle çalışır, yoğun bir kümenin
+            # İÇİNDEKİ lokal anormallikleri (komşularına göre tutarsız uydular) gözden
+            # kaçırabilir. LOF (yoğunluk tabanlı) bunu tamamlıyor. novelty=True, eğitimden
+            # sonra yeni (canlı TLE) verilerde .predict() çağrısına izin verir.
+            lof = LocalOutlierFactor(n_neighbors=20, contamination=0.03, novelty=True).fit(
+                self.scaler.transform(X))
 
             # Modelleri disk üzerine kaydediyoruz
-            joblib.dump((self.model, self.label_encoder, self.scaler, cluster_model, iso_forest), self.model_path)
+            joblib.dump((self.model, self.label_encoder, self.scaler, cluster_model, iso_forest, lof),
+                        self.model_path)
             return f"Model Başarıyla Eğitildi. Doğruluk: %{metrics['accuracy'] * 100:.1f}"
 
         except Exception as e:
@@ -176,11 +185,11 @@ class SSAService:
         """
         Eğitilmiş modelleri kullanarak canlı TLE verilerini analiz etme.
         """
-        if self.model is None or self.cluster_model is None or self.iso_forest is None:
+        if self.model is None or self.cluster_model is None or self.iso_forest is None or self.lof is None:
             if self.model_path.exists():
                 try:
                     loaded_data = joblib.load(self.model_path)
-                    self.model, self.label_encoder, self.scaler, self.cluster_model, self.iso_forest = loaded_data
+                    self.model, self.label_encoder, self.scaler, self.cluster_model, self.iso_forest, self.lof = loaded_data
                     print(">>> Modeller diskten başarıyla yüklendi.")
                 except Exception as e:
                     print(f">>> Modeller yüklenirken hata: {e}")
@@ -231,7 +240,13 @@ class SSAService:
                 cat = self.label_encoder.inverse_transform(self.model.predict(input_raw))[0]
                 conf = np.max(self.model.predict_proba(input_raw))
                 cluster_id = int(self.cluster_model.predict(scaled)[0])
-                is_anomaly = 1 if self.iso_forest.predict(scaled)[0] == -1 else 0
+                # İki yöntemden biri anomali derse işaretliyoruz (OR): Isolation Forest
+                # global aykırılıkları, LOF ise kümeler içindeki lokal aykırılıkları
+                # yakalıyor — kaçırılan gerçek bir anomali, fazladan bir uyarıdan daha
+                # maliyetli olduğu için kapsamı genişletmeyi tercih ediyoruz.
+                is_anomaly_if = self.iso_forest.predict(scaled)[0] == -1
+                is_anomaly_lof = self.lof.predict(scaled)[0] == -1
+                is_anomaly = 1 if (is_anomaly_if or is_anomaly_lof) else 0
 
                 # YÖRÜNGE SÖNÜMLENME RİSKİ (Decay Risk)
                 # Alçak irtifa + Yüksek BSTAR = Kritik Risk
