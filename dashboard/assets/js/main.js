@@ -414,7 +414,7 @@ const CLUSTER_COLORS = {
                     <tr>
                         <td class="font-mono small">${s.id}</td>
                         <td class="fw-bold">${s.sat_name}</td>
-                        <td class="small">${s.source || 'N/A'}</td>
+                        <td class="small" style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${s.source || ''}">${s.source || 'N/A'}</td>
                         <td>
                             <button class="btn btn-sm btn-outline-info" onclick="goToMapWithSat(${s.id}, '${s.sat_name}')">
                                 <i class="fas fa-eye"></i> İncele

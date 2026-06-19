@@ -91,7 +91,7 @@ Demo videosuna ve rapora ```docs``` dizininden ulaşabilirsiniz. Demo videosunu 
 
 ### Erişilebilirlik
 
-* **Web Arayüzü:** `http://127.0.0.1:8000/index.html`
+* **Web Arayüzü:** `http://127.0.0.1:8000/`
 * **API Dokümantasyonu (Swagger UI):** `http://127.0.0.1:8000/docs`
 
 ## Temel Hesaplama Modülleri
