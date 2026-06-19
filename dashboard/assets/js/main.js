@@ -24,6 +24,14 @@
                     if (!layer.pathData || !layer.marker) return;
                     const data = layer.pathData;
 
+                    // Path verisinin son noktasına yaklaşıldıysa (son 10 saniye içindeyse),
+                    // marker'ın orada donmaması için arka planda yeni bir yörünge parçası
+                    // çekiyoruz. refreshing bayrağı eşzamanlı çift istek atılmasını önler.
+                    const lastTime = new Date(data[data.length - 1].time).getTime();
+                    if (!layer.refreshing && now >= lastTime - 10000) {
+                        refreshSatellitePath(id);
+                    }
+
                     // İki ardışık nokta arasında now'u bul
                     let i = 0;
                     for (; i < data.length - 1; i++) {
@@ -137,6 +145,54 @@ const CLUSTER_COLORS = {
     3: '#0aff60', // Yüksek Eğiklik - Yeşil
     4: '#ff0055'  // Diğer - Kırmızı
 };
+        async function fetchOrbitPath(id) {
+            const pathRes = await fetch(`${API_BASE}/orbit/propagate/${id}?duration_minutes=100&step_seconds=10`);
+            return await pathRes.json();
+        }
+
+        function buildOrbitSegments(pathData) {
+            const latlngs = pathData.map(p => [p.lat, p.lon]);
+
+            // Anti-meridyen (±180°) geçişlerinde tek bir noktadan diğerine
+            // doğrudan çizgi çekmek haritayı boydan boya kesen sahte segmentler
+            // oluşturuyordu. Ardışık noktalar arasındaki boylam farkı 180°'yi
+            // aşınca yörüngeyi ayrı segmentlere bölüyoruz; L.polyline bir
+            // segment dizisi (multi-polyline) verildiğinde aralarına çizgi çekmez.
+            const segments = [[latlngs[0]]];
+            for (let i = 1; i < latlngs.length; i++) {
+                const prevLon = latlngs[i - 1][1];
+                const currLon = latlngs[i][1];
+                if (Math.abs(currLon - prevLon) > 180) {
+                    segments.push([]);
+                }
+                segments[segments.length - 1].push(latlngs[i]);
+            }
+            return segments;
+        }
+
+        async function refreshSatellitePath(id) {
+            const layer = activeLayers[id];
+            if (!layer || layer.refreshing) return;
+            layer.refreshing = true;
+            try {
+                const pathData = await fetchOrbitPath(id);
+                layer.pathData = pathData;
+
+                const newPolyline = L.polyline(buildOrbitSegments(pathData), {
+                    color: layer.color,
+                    weight: 3,
+                    opacity: 0.8,
+                    smoothFactor: 1
+                }).addTo(map);
+                map.removeLayer(layer.polyline);
+                layer.polyline = newPolyline;
+            } catch (e) {
+                console.error(`Yörünge yenilenemedi (sat ${id}):`, e);
+            } finally {
+                layer.refreshing = false;
+            }
+        }
+
         async function addSatelliteToMap(id, name, forcedColor = null) {
             if(activeLayers[id]) {
                 alert("Bu uydu zaten haritada ekli!");
@@ -151,27 +207,10 @@ const CLUSTER_COLORS = {
                 const metaRes = await fetch(`${API_BASE}/tle/${id}`);
                 const meta = await metaRes.json();
 
-                const pathRes = await fetch(`${API_BASE}/orbit/propagate/${id}?duration_minutes=100&step_seconds=10`);
-                const pathData = await pathRes.json();
-
+                const pathData = await fetchOrbitPath(id);
                 const latlngs = pathData.map(p => [p.lat, p.lon]);
 
-                // Anti-meridyen (±180°) geçişlerinde tek bir noktadan diğerine
-                // doğrudan çizgi çekmek haritayı boydan boya kesen sahte segmentler
-                // oluşturuyordu. Ardışık noktalar arasındaki boylam farkı 180°'yi
-                // aşınca yörüngeyi ayrı segmentlere bölüyoruz; L.polyline bir
-                // segment dizisi (multi-polyline) verildiğinde aralarına çizgi çekmez.
-                const segments = [[latlngs[0]]];
-                for (let i = 1; i < latlngs.length; i++) {
-                    const prevLon = latlngs[i - 1][1];
-                    const currLon = latlngs[i][1];
-                    if (Math.abs(currLon - prevLon) > 180) {
-                        segments.push([]);
-                    }
-                    segments[segments.length - 1].push(latlngs[i]);
-                }
-
-                const polyline = L.polyline(segments, {
+                const polyline = L.polyline(buildOrbitSegments(pathData), {
                     color: color,
                     weight: 3,
                     opacity: 0.8,
