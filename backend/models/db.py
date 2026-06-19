@@ -95,6 +95,31 @@ def init_db():
         ON tle_history(norad_id, epoch)
     """)
 
+    # Manevra Tespiti (Faz 3): tle_history'deki ardışık epoch çiftleri arasında
+    # SGP4 artık-hız (residual velocity) yöntemiyle tespit edilen manevralar.
+    curr.execute("""
+        CREATE TABLE IF NOT EXISTS maneuver_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            norad_id INTEGER,
+            sat_name TEXT,
+            epoch_before TEXT,
+            epoch_after TEXT,
+            dt_hours REAL,
+            delta_semi_major_km REAL,
+            delta_inclination_deg REAL,
+            delta_eccentricity REAL,
+            velocity_residual_m_s REAL,
+            maneuver_type TEXT,
+            confidence REAL,
+            estimated_dv_m_s REAL,
+            detected_at TEXT
+        )
+    """)
+    curr.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_maneuver_events_unique
+        ON maneuver_events(norad_id, epoch_before, epoch_after)
+    """)
+
     curr.execute("""
         CREATE TABLE IF NOT EXISTS satellite_intelligence (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

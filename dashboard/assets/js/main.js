@@ -77,6 +77,7 @@
             fetchAndRenderSSAResults();
             renderSpaceRegimeHeatmap();
             }
+            if(id === 'maneuver-detection') loadManeuverEvents();
         }
 
         function showLoading(show, text="İşleniyor...") {
@@ -614,6 +615,72 @@ async function calculateManeuver() {
             alert(`Analiz Bitti! ${data.processed_satellites} uydu sınıflandırıldı.`);
             await fetchAndRenderSSAResults();
 
+        } catch (e) {
+            alert("Hata: " + e);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    const MANEUVER_TYPE_BADGES = {
+        ALTITUDE_CHANGE: { class: 'bg-warning text-dark', label: 'İrtifa Değişimi' },
+        INCLINATION_CHANGE: { class: 'bg-danger', label: 'Eğim Değişimi' },
+        ECCENTRICITY_CHANGE: { class: 'bg-info text-dark', label: 'Eksantriklik Değişimi' },
+        ORBIT_ADJUSTMENT: { class: 'bg-secondary', label: 'Yörünge Ayarı' },
+        COMBINED: { class: '', label: 'Kombine', style: 'background-color: var(--accent-magenta);' }
+    };
+
+    async function loadManeuverEvents() {
+        const tbody = document.getElementById('maneuver-events-body');
+        try {
+            const res = await fetch(`${API_BASE}/maneuver-detection/events?limit=100`);
+            const data = await res.json();
+            tbody.innerHTML = "";
+
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-3">Tespit edilen manevra yok.</td></tr>`;
+                return;
+            }
+
+            data.forEach(ev => {
+                const badge = MANEUVER_TYPE_BADGES[ev.maneuver_type] || { class: 'bg-secondary', label: ev.maneuver_type };
+                const conf = (ev.confidence * 100).toFixed(0);
+
+                tbody.innerHTML += `
+                    <tr class="animate__animated animate__fadeIn">
+                        <td>
+                            <div class="fw-bold">${ev.sat_name}</div>
+                            <div class="small font-mono">${ev.norad_id}</div>
+                        </td>
+                        <td><span class="badge ${badge.class}" ${badge.style ? `style="${badge.style}"` : ''}>${badge.label}</span></td>
+                        <td class="font-mono small">${new Date(ev.epoch_before).toLocaleString()} → ${new Date(ev.epoch_after).toLocaleString()}</td>
+                        <td class="font-mono">${ev.delta_semi_major_km.toFixed(3)}</td>
+                        <td class="font-mono">${ev.delta_inclination_deg.toFixed(4)}</td>
+                        <td class="font-mono">${ev.delta_eccentricity.toFixed(6)}</td>
+                        <td class="font-mono text-warning">${ev.estimated_dv_m_s.toFixed(3)}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1 me-2" style="height: 4px; background: rgba(255,255,255,0.1);">
+                                    <div class="progress-bar bg-warning" style="width: ${conf}%"></div>
+                                </div>
+                                <small class="font-mono">%${conf}</small>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+        } catch(e) {
+            console.error("Manevra Tespiti Tablo Hatası:", e);
+            tbody.innerHTML = `<tr><td colspan="8" class="text-danger text-center">Veri alınamadı</td></tr>`;
+        }
+    }
+
+    async function runManeuverDetection() {
+        showLoading(true, "Manevra Tespiti Taraması Yapılıyor...");
+        try {
+            const res = await fetch(`${API_BASE}/maneuver-detection/run`, { method: 'POST' });
+            const data = await res.json();
+            alert(`Tarama Bitti. Yeni tespit edilen manevra: ${data.new_events}`);
+            await loadManeuverEvents();
         } catch (e) {
             alert("Hata: " + e);
         } finally {

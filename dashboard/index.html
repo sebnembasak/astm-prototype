@@ -41,6 +41,9 @@
         <div class="nav-item" onclick="showSection('ssa-panel', this)">
             <i class="fas fa-brain"></i> SSA Zekası
         </div>
+        <div class="nav-item" onclick="showSection('maneuver-detection', this)">
+            <i class="fas fa-rocket"></i> Manevra Tespiti
+        </div>
 
     </div>
 
@@ -343,6 +346,39 @@
         </div>
     </div>
     </div>
+
+        <div id="maneuver-detection" class="content-section d-none animate__animated animate__fadeIn">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-light"><i class="fas fa-rocket text-warning me-2"></i>Manevra Tespiti</h3>
+                <button class="btn btn-outline-warning btn-sm" onclick="runManeuverDetection()">
+                    <i class="fas fa-search me-2"></i>Tara
+                </button>
+            </div>
+            <div class="card-glass">
+                <div class="card-header-glass">
+                    <span><i class="fas fa-history me-2"></i>Tespit Edilen Manevralar</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-space table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Uydu</th>
+                                    <th>Tip</th>
+                                    <th>Epoch Önce → Sonra</th>
+                                    <th>Δa (km)</th>
+                                    <th>Δi (°)</th>
+                                    <th>Δe</th>
+                                    <th>Tahmini ΔV (m/s)</th>
+                                    <th>Güven</th>
+                                </tr>
+                            </thead>
+                            <tbody id="maneuver-events-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <footer class="mt-auto pt-3 pb-2 animate__animated animate__fadeInUp">
             <div class="card-glass p-3 footer-glass">
