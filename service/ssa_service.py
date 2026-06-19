@@ -5,7 +5,7 @@ import joblib
 from pathlib import Path
 from datetime import datetime, timezone
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
-from sklearn.cluster import KMeans
+from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, classification_report
@@ -24,7 +24,7 @@ class SSAService:
         self.data_path = Path("data/ucs_database.csv")
         self.metrics_path = Path("data/ssa_metrics.json")
         self.model = None
-        self.kmeans = None
+        self.cluster_model = None
         self.iso_forest = None
         self.label_encoder = LabelEncoder()  # Kategorik verileri sayısal verilere dönüştürür
         self.scaler = StandardScaler()  # Verileri standart normal dağılıma (0 ortalama, 1 sapma) çeker
@@ -158,13 +158,15 @@ class SSAService:
             with open(self.metrics_path, "w") as f:
                 json.dump(metrics, f)
 
-            # Kümeleme (K-Means) ve Anomali Tespiti (Isolation Forest)
+            # Kümeleme (Gaussian Mixture Model) ve Anomali Tespiti (Isolation Forest)
             # Veriyi ölçeklendirip uyduları gruplandırıyoruz ve normal dışı olanları yakalıyoruz.
-            kmeans = KMeans(n_clusters=5, random_state=42).fit(self.scaler.fit_transform(X))
+            # KMeans'in sert (hard) küme sınırları yerine GMM her uyduya kümeler üzerinde
+            # olasılıksal bir dağılım atar — rejim sınırındaki uydular için daha gerçekçi.
+            cluster_model = GaussianMixture(n_components=5, random_state=42).fit(self.scaler.fit_transform(X))
             iso_forest = IsolationForest(contamination=0.03, random_state=42).fit(self.scaler.transform(X))
 
             # Modelleri disk üzerine kaydediyoruz
-            joblib.dump((self.model, self.label_encoder, self.scaler, kmeans, iso_forest), self.model_path)
+            joblib.dump((self.model, self.label_encoder, self.scaler, cluster_model, iso_forest), self.model_path)
             return f"Model Başarıyla Eğitildi. Doğruluk: %{metrics['accuracy'] * 100:.1f}"
 
         except Exception as e:
@@ -174,11 +176,11 @@ class SSAService:
         """
         Eğitilmiş modelleri kullanarak canlı TLE verilerini analiz etme.
         """
-        if self.model is None or self.kmeans is None or self.iso_forest is None:
+        if self.model is None or self.cluster_model is None or self.iso_forest is None:
             if self.model_path.exists():
                 try:
                     loaded_data = joblib.load(self.model_path)
-                    self.model, self.label_encoder, self.scaler, self.kmeans, self.iso_forest = loaded_data
+                    self.model, self.label_encoder, self.scaler, self.cluster_model, self.iso_forest = loaded_data
                     print(">>> Modeller diskten başarıyla yüklendi.")
                 except Exception as e:
                     print(f">>> Modeller yüklenirken hata: {e}")
@@ -228,7 +230,7 @@ class SSAService:
 
                 cat = self.label_encoder.inverse_transform(self.model.predict(input_raw))[0]
                 conf = np.max(self.model.predict_proba(input_raw))
-                cluster_id = int(self.kmeans.predict(scaled)[0])
+                cluster_id = int(self.cluster_model.predict(scaled)[0])
                 is_anomaly = 1 if self.iso_forest.predict(scaled)[0] == -1 else 0
 
                 # YÖRÜNGE SÖNÜMLENME RİSKİ (Decay Risk)
