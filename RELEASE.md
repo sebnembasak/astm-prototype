@@ -1,3 +1,40 @@
+# Release Notes - v1.3.0 (Manevra Tespiti, SSA Model İyileştirmeleri & Test Altyapısı)
+
+## Genel Bakış
+Bu sürüm SSA yol haritasının Faz 3-5'ini tamamlar: geçmiş manevraları TLE zaman serisinden tespit eden yeni bir modül, SSA kümeleme/anomali/güven kalibrasyonu algoritmalarında üç ayrı iyileştirme, çekirdek uzay mekaniği modülleri için ilk unit test paketi ve iki dashboard düzeltmesi içerir.
+
+## Yeni Özellikler
+
+### Manevra Tespiti (Faz 3)
+- **Mean-Element Farkı Yöntemi:** `processing/maneuver_detection.py` — ardışık iki TLE'nin mean orbital elementleri (yarı-büyük eksen, eğim, dış merkezlik) doğrudan (propagation yapılmadan) karşılaştırılır; bu elementler faz/mean-anomaly'den bağımsız olduğu için saatler/günler arayla alınmış TLE çiftlerinde de güvenilir sonuç verir.
+  - **Terk edilen ilk yaklaşım:** SGP4 ile `tle_before`'u `tle_after`'ın epoch'una ilerletip ham hız vektörlerini (artık-hız/residual velocity) karşılaştırmak gerçek verilerde fiziksel olarak anlamsız sonuçlar üretti (54 saat arayla gerçek bir ISS TLE çiftinde, manevra olmamasına rağmen 3.58 m/s artık hız hesaplandı — orbital hızın (~7.6 km/s) mertebesinde sahte sinyal).
+  - Δa'dan tanjantsal (irtifa) ΔV, Δi'den normal (düzlem değişimi) ΔV dairesel yörünge yaklaşımıyla türetilir; toplam ΔV bu iki bileşenin vektörel toplamıdır.
+  - Manevra tipleri: `ALTITUDE_CHANGE`, `INCLINATION_CHANGE`, `ECCENTRICITY_CHANGE`, `ORBIT_ADJUSTMENT`, `COMBINED`.
+- **Yeni tablo:** `maneuver_events` (`norad_id, epoch_before, epoch_after` üzerinde `UNIQUE` index ile tekrar taramalarda çift kayıt önlenir).
+- **Yeni endpointler:** `POST /maneuver-detection/run`, `GET /maneuver-detection/events`.
+- **Dashboard:** "Manevra Tespiti" paneli — tip, Δa/Δi/Δe, tahmini ΔV ve güven skorunu listeleyen tablo.
+
+## SSA Model İyileştirmeleri (Faz 4-5)
+
+- **Kümeleme — K-Means → Gaussian Mixture Model:** `service/ssa_service.py` — K-Means'in sert (hard) küme sınırları yerine GMM, rejim sınırındaki uydular için olasılıksal (soft) küme ataması yapar. Arayüz (`fit`/`predict`) aynı kaldığı için API/dashboard/DB şemasında değişiklik gerekmedi.
+- **Anomali Tespiti — Isolation Forest + Local Outlier Factor Ensemble:** Isolation Forest'ın global/eksen-hizalı bölünmelerle gözden kaçırdığı, yoğun bir kümenin İÇİNDEKİ lokal anormallikleri yakalamak için LOF (`novelty=True`) eklendi; iki yöntemden biri anomali derse nesne işaretlenir (OR mantığı). 170 canlı uydu üzerinde doğrulama: IF tek başına 1, LOF tek başına 21 ek anomali yakaladı (toplam ~%13, önceki ~%3'ten yüksek — kaçırılan gerçek bir anomalinin maliyeti fazladan bir uyarıdan yüksek olduğu için bilinçli tasarım).
+- **Confidence Kalibrasyonu:** Random Forest'ın ham `predict_proba` çıktıları `CalibratedClassifierCV` (sigmoid, çapraz doğrulamalı) ile kalibre edildi — ağaç tabanlı modeller genellikle aşırı güvenli (overconfident) tahminler üretir. Çapraz doğrulama katlama sayısı en nadir sınıfın eğitim setindeki örnek sayısına göre dinamik sınırlandırılır (yetersizse kalibrasyonsuz devam edilir). Sonuç: Doğruluk %89.3→%90.2, ROC-AUC 0.979→0.984.
+- **Not (uygulanmadı):** LightGBM ile model benchmark'ı planlanmış ancak macOS'ta eksik `libomp` (OpenMP) sistem bağımlılığı nedeniyle ertelendi; mevcut Random Forest + kalibrasyon hattı korunmuştur.
+
+## Test Altyapısı
+
+- **İlk unit test paketi:** `tests/test_conjunction.py`, `tests/test_optimizer.py` — daha önce hiç testi olmayan çarpışma analizi (`processing/conjunction.py`) ve manevra optimizasyonu (`planner/optimizer.py`) modülleri için 19 deterministik test. Gerçek SGP4/poliastro çağrıları yerine doğrusal hareket varsayan sahte (mock) propagator fonksiyonları kullanılarak el ile doğrulanabilir kapalı-form sonuçlar (çarpışma, paralel hareket, kenetlenme/docking sınıflandırması vb.) üzerinden çalışır.
+
+## Dashboard Düzeltmeleri
+
+- **Manevra Tespiti paneli düzeni:** SSA panelindeki bir HTML div etiketinde fazladan kapanış nedeniyle `.main-content` kapsayıcısı erken kapanıyor, bu da Manevra Tespiti panelinin ve footer'ın sidebar düzeninin tamamen dışına (sayfanın çok altına) taşmasına yol açıyordu. Etiket dengesizliği düzeltildi.
+- **Yörünge yenileme:** Haritadaki canlı takip, 100 dakikalık hesaplama penceresinin sonuna ulaştığında uydu işaretçisi son noktada donuyordu (yeni veri çekilmiyordu). Son noktaya 10 saniye kala arka planda yeni bir 100 dakikalık pencere otomatik çekilip yörünge çizgisi/işaretçi güncelleniyor.
+
+## Değiştirilen Dosyalar
+`processing/maneuver_detection.py` (yeni), `service/maneuver_detection_service.py` (yeni), `backend/api/router_maneuver_detection.py` (yeni), `service/ssa_service.py`, `backend/models/db.py`, `main.py`, `dashboard/index.html`, `dashboard/assets/js/main.js`, `tests/test_conjunction.py` (yeni), `tests/test_optimizer.py` (yeni)
+
+---
+
 # Release Notes - v1.2.0 (Core Fixes & Data Integrity)
 
 ## Genel Bakış

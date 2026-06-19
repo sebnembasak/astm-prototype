@@ -15,7 +15,7 @@ init_db()
 app = FastAPI(
     title="ASTM Prototype API",
     description="ASTM",
-    version="0.1.0",
+    version="1.3.0",
 )
 
 # CORS ayarları — production'da ALLOWED_ORIGINS env değişkeni set edilmeli

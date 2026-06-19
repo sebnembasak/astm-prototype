@@ -24,17 +24,20 @@ Frontend ise etkileşimli bir Dashboard, Uydu Kataloğu ve Canlı Harita Görsel
 ### Yapay Zeka ve SSA (Uzay Durum Farkındalığı) Modülü
 Sistem, ham TLE verilerini kullanarak uyduların davranışlarını ve gizli görev parametrelerini analiz eden bir Makine Öğrenmesi (ML) katmanı içerir:
 
-* **Görev Sınıflandırma (Random Forest):** 7.500+ uyduluk UCS veri seti ile eğitilen model; eğim, basıklık ve periyot verilerinden uydunun kullanım amacını (Askeri, Ticari, Gözlem vb.) %90+ doğrulukla tahmin eder.
-* **Anomali Tespiti (Isolation Forest):** Yörünge parametrelerinde normal dışı kaymalar veya standart dışı yörünge dizilimleri gösteren "şüpheli" nesneleri otomatik olarak işaretler.
-* **Yörünge Rejimi Kümeleme (K-Means):** Uyduları fiziksel özelliklerine göre LEO, MEO, GEO, HEO ve VLEO olarak 5 ana kümede gruplandırır.
+* **Görev Sınıflandırma (Calibrated Random Forest):** 7.500+ uyduluk UCS veri seti ile eğitilen model; eğim, basıklık, periyot, perije ve apoje verilerinden (Kepler'in 3. Kanunu ile türetilmiş) uydunun kullanım amacını ~%90 doğrulukla tahmin eder. Ham olasılık çıktıları `CalibratedClassifierCV` (sigmoid, çapraz doğrulamalı) ile kalibre edilerek güven (confidence) skorlarının gerçek isabet oranını yansıtması sağlanır.
+* **Anomali Tespiti (Isolation Forest + Local Outlier Factor Ensemble):** Isolation Forest global/eksen-hizalı aykırılıkları, Local Outlier Factor (LOF) ise yoğun bir kümenin içindeki lokal aykırılıkları yakalar; iki yöntemden biri anomali derse nesne işaretlenir (OR mantığı, kaçırılan gerçek bir anomalinin maliyetinin fazladan bir uyarıdan daha yüksek olduğu prensibiyle).
+* **Yörünge Rejimi Kümeleme (Gaussian Mixture Model):** Uyduları fiziksel özelliklerine göre LEO, MEO, GEO, HEO ve VLEO olarak 5 ana kümede gruplandırır; K-Means'in sert (hard) küme sınırları yerine olasılıksal (soft) üyelik ataması kullanır.
+* **Manevra Tespiti (Mean-Element Farkı):** `tle_history` tablosunda arşivlenen ardışık TLE çiftlerinden mean orbital elementleri (yarı-büyük eksen, eğim, dış merkezlik) faz/mean-anomaly bilgisinden bağımsız olarak çıkarır; aradaki farktan tanjantsal ve normal ΔV bileşenlerini fizik formülüyle (dairesel yörünge yaklaşımı) türeterek İrtifa Değişimi, Düzlem Değişimi, Eksantriklik Değişimi veya Kombine manevra tiplerini sınıflandırır.
 * **Sönümlenme (Decay) Analizi:** BSTAR sürüklenme katsayısı ve irtifa verilerini hibritleyerek uydunun atmosfere düşme riskini (Düşük/Orta/Yüksek) hesaplar.
-* **Teknik Performans Raporu:** Modelin başarı metriklerini (Accuracy, F1-Score, Confusion Matrix) radar grafikler ve ısı haritaları ile anlık olarak sunar.
+* **Teknik Performans Raporu:** Modelin başarı metriklerini (Accuracy, F1-Score, ROC-AUC, Confusion Matrix) radar grafikler ve ısı haritaları ile anlık olarak sunar.
 
 ### Frontend
 
 * **Canlı Harita Görünümü:** Leaflet.js haritası üzerinde, seçilen uyduların SGP4 ile hesaplanmış yörünge yollarını (Lat/Lon/Alt) görselleştirir.
 * **Çarpışma Analizi Arayüzü:** Kritik Riskler (`COLLISION`) ve Yakın Formasyon Uçuşları/Kenetlenmeler (`DOCKING`) olaylarını ayırarak görüntüler.
 * **Manevra Planlama Modalı:** Seçilen bir çarpışma uyarısı için, hedeflenen güvenli mesafeye ulaşmak için gereken optimal DeltaV değerlerini gösteren etkileşimli bir arayüz sunar.
+* **Manevra Tespiti Paneli:** Katalogdaki uydular için otomatik taranan geçmiş manevra olaylarını (tip, Δa/Δi/Δe, tahmini ΔV, güven skoru) listeler.
+* **Canlı Yörünge Yenileme:** Haritadaki uydu işaretçisi, 100 dakikalık hesaplama penceresinin sonuna yaklaştığında arka planda otomatik olarak yeni bir yörünge parçası çekerek kesintisiz takip sağlar.
 
 ### ASTM-Demo Örneği
 [![ASTM Demo Video](docs/Screenshots/dashboard.png)](https://vimeo.com/1145363572)
@@ -98,7 +101,16 @@ Demo videosuna ve rapora ```docs``` dizininden ulaşabilirsiniz. Demo videosunu 
 | **SGP4 Propagatör** | `processing/propagator.py` | TLE'den alınan yörüngeyi belirli bir zamana kadar ilerletir (r ve v vektörlerini TEME'de verir).       |
 | **Koordinat Dönüşümü** | `processing/coord_utils.py` | TEME (uzay) koordinatlarını haritada çizmek için Lat/Lon/Alt (Dünya yüzeyi) değerlerine çevirir        |
 | **Budama (Pruner)** | `processing/pruner.py` | **cKDTree** kullanarak binlerce uydu arasından sadece birbirine yakın olan aday çiftleri hızlıca seçer |
-| **Manevra Optimizasyonu** | `planner/optimizer.py` | **Scipy.optimize** kullanarak çarpışma sonrası güvenli mesafeyi sağlayan minimum DeltaV değerini bulur |
+| **Manevra Optimizasyonu** | `planner/optimizer.py` | **Scipy.optimize** (L-BFGS-B) kullanarak çarpışma sonrası güvenli mesafeyi sağlayan minimum DeltaV değerini bulur |
+| **Manevra Tespiti** | `processing/maneuver_detection.py` | Ardışık TLE'lerin mean orbital elementlerinden (faz-bağımsız) fizik tabanlı ΔV tahminiyle geçmiş manevraları tespit eder |
+
+## Test ve Doğrulama
+
+Çekirdek uzay mekaniği modülleri (`processing/conjunction.py`, `planner/optimizer.py`) için `tests/` dizininde deterministik birim testleri bulunur. Testler, gerçek SGP4/poliastro çağrıları yerine doğrusal hareket varsayan sahte (mock) propagator fonksiyonları kullanarak el ile doğrulanabilir kapalı-form sonuçlar üzerinden çalışır:
+
+```bash
+pytest tests/ -v
+```
 
 ## Proje Yapısı
 
