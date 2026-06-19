@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import LocalOutlierFactor
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, classification_report
@@ -121,38 +122,66 @@ class SSAService:
             X = df[features]  # Girdi özellikleri
             y = self.label_encoder.fit_transform(df['Purpose'].astype(str))  # Hedef değişken
 
-            # Random Forest algoritması kullanılmıştır - %80 Eğitim, %20 Test
             # Bu problemde uyduların kullanım amaçları (Kategorik hedef) ile yörünge parametreleri (Sayısal girdiler) arasındaki
             # ilişki doğrusal olmayabilir. Örneğin casus uydular ile meteoroloji uyduları benzer irtifalarda (LEO) olabilir
             # ancak eğimleri (Inclination) farklıdır. Random Forest, bu karmaşık karar ağaçlarını başarıyla modeller.
+            # Not: LightGBM ile kıyaslama denendi ama macOS'ta libomp (OpenMP) sistem
+            # bağımlılığı eksik olduğu için (brew kurulumu istenmedi) RandomForest ile
+            # devam ediliyor; kalibrasyon adımı algoritmadan bağımsız olduğu için geçerliliğini koruyor.
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-            self.model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
-            self.model.fit(X_train, y_train)
 
-            # Performans Metrikleri
+            def _roc_auc(y_prob_):
+                try:
+                    # `labels` zorunlu: 21 sınıftan bazılarının (ör. 2 örnekli
+                    # "Mission Extension Technology") stratified split sonrası y_test'te
+                    # hiç temsilcisi kalmayabiliyor; labels olmadan sklearn y_true'daki
+                    # benzersiz sınıf sayısını y_score sütun sayısıyla eşleşmeyince
+                    # ValueError atıyor.
+                    return roc_auc_score(y_test, y_prob_, multi_class='ovr', average='weighted',
+                                          labels=np.arange(len(self.label_encoder.classes_)))
+                except Exception:
+                    return 0.0
+
+            best_model = RandomForestClassifier(n_estimators=200, class_weight='balanced', random_state=42)
+            best_model.fit(X_train, y_train)
+
+            # Confidence Kalibrasyonu: ham predict_proba çıktıları (özellikle ağaç
+            # tabanlı modellerde) gerçek güveni yansıtmayabilir (örn. model %90 derse
+            # gerçekte %90 doğru çıkmayabilir). CalibratedClassifierCV, çapraz
+            # doğrulamayla olasılıkları gerçek isabet oranına yaklaştırır. En nadir
+            # sınıfın eğitim setindeki örnek sayısından fazla katlama (fold) istemek
+            # ValueError atar; bu yüzden cv'yi buna göre sınırlıyor, hâlâ yetersizse
+            # (örn. 1 örnekli bir sınıf train'e düştüyse) kalibrasyonsuz devam ediyoruz.
+            train_class_counts = np.bincount(y_train)
+            min_train_count = int(train_class_counts[train_class_counts > 0].min())
+            calibration_applied = False
+            self.model = best_model
+            if min_train_count >= 2:
+                cv_folds = min(3, min_train_count)
+                try:
+                    calibrated = CalibratedClassifierCV(best_model, method='sigmoid', cv=cv_folds)
+                    calibrated.fit(X_train, y_train)
+                    self.model = calibrated
+                    calibration_applied = True
+                except Exception as e:
+                    print(f">>> Kalibrasyon uygulanamadı, ham model kullanılıyor: {e}")
+
+            # Performans Metrikleri (üretime alınan, kalibre edilmiş modelle)
             y_pred = self.model.predict(X_test)
             y_prob = self.model.predict_proba(X_test)
-
-            try:
-                # Çok sınıflı ROC-AUC skoru. `labels` zorunlu: 21 sınıftan bazılarının
-                # (ör. 2 örnekli "Mission Extension Technology") stratified split sonrası
-                # y_test'te hiç temsilcisi kalmayabiliyor; labels olmadan sklearn y_true'daki
-                # benzersiz sınıf sayısını y_score sütun sayısıyla eşleşmeyince ValueError atıyor.
-                roc_auc = roc_auc_score(y_test, y_prob, multi_class='ovr', average='weighted',
-                                        labels=np.arange(len(self.label_encoder.classes_)))
-            except Exception:
-                roc_auc = 0.0
 
             metrics = {
                 "accuracy": accuracy_score(y_test, y_pred),  # Genel doğruluk oranı
                 "f1_score": f1_score(y_test, y_pred, average='weighted'),  # Dengesiz sınıflar için hassasiyet metriği
-                "roc_auc": roc_auc,
+                "roc_auc": _roc_auc(y_prob),
                 "confusion_matrix": confusion_matrix(y_test, y_pred).tolist(),
                 "classes": self.label_encoder.classes_.tolist(),
-                "feature_importance": dict(zip(features, self.model.feature_importances_.tolist())),
-                # Hangi özellik daha önemli?
+                # CalibratedClassifierCV özgün modeli sarmaladığı için feature_importances_'ı
+                # kalibrasyon öncesi seçilen (best_model) ağaç modelinden alıyoruz.
+                "feature_importance": dict(zip(features, best_model.feature_importances_.tolist())),
                 "classification_report": classification_report(y_test, y_pred, output_dict=True),  # Detaylı rapor
                 "sample_size": len(df),
+                "calibration_applied": calibration_applied,
                 "timestamp": datetime.now().isoformat()
             }
 
