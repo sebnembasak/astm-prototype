@@ -35,6 +35,7 @@ class ScenarioResult:
     capacity_loss_pct: float
     additional_stations_for_target: Optional[int]  # kaybı hedef oranda azaltmak için gereken EK istasyon sayısı
     # None -> CANDIDATE_GROUND_STATIONS havuzu / MAX_ADDITIONAL_STATIONS_SEARCH içinde hedefe ulaşılamadı
+    additional_stations_path: Optional[List[str]]  # greedy aramanın seçtiği istasyonlar, eklenme sırasıyla
 
 
 class CapacityPlanningService:
@@ -66,38 +67,66 @@ class CapacityPlanningService:
             start_utc: datetime,
             end_utc: datetime,
             reduction_pct: float = TARGET_CAPACITY_LOSS_REDUCTION_PCT,
-    ) -> Optional[int]:
+    ) -> Tuple[Optional[int], List[str]]:
         """
-        Mevcut istasyon sayısına kaç istasyon EKLENİRSE kapasite kaybının
-        `reduction_pct` kadar azalacağını, CANDIDATE_GROUND_STATIONS havuzundan
-        sırayla istasyon ekleyerek arar. Zaten kayıp yoksa 0 döner.
-        Havuz veya MAX_ADDITIONAL_STATIONS_SEARCH sınırı içinde hedefe
-        ulaşılamazsa None döner.
+        Mevcut istasyonlara kaç istasyon EKLENİRSE kapasite kaybının
+        `reduction_pct` kadar azalacağını GREEDY EN-İYİ-İSTASYON aramasıyla
+        bulur: her adımda, havuzdaki KULLANILMAMIŞ tüm adaylar tek tek
+        denenir (mevcut kümeye eklenmiş gibi kapasite kaybı hesaplanır) ve
+        kaybı EN ÇOK azaltan aday seçilir — CANDIDATE_GROUND_STATIONS
+        listesindeki sabit sırayla (Ankara->Svalbard->Punta Arenas->...)
+        deneyen eski yaklaşımın yerine geçer.
 
-        Performans: her adımda SADECE yeni eklenen tek istasyonun geçiş
-        pencereleri hesaplanır ve önceki pencerelere eklenir (kümülatif) —
-        her adımda tüm istasyon kümesini sıfırdan yeniden hesaplamak
-        (O(extra²)) yerine O(extra) maliyetle çalışır.
+        Eski sıralı yaklaşımın yanlışlığı: SSO/polar uydularda kutup-bölgesi
+        istasyonları (Svalbard, Punta Arenas) kaybı AZALTMAK yerine
+        ARTIRABİLİYOR (bkz. "Kutup İstasyonu Darboğazı" bulgusu) — sabit
+        sırayla deneme, bu istasyonları "sıradaki" oldukları için seçip
+        gerçekte en iyi seçenekleri hiç denemeden None ile sonuçlanabiliyordu.
+
+        Zaten kayıp yoksa (0, []) döner. Havuz veya
+        MAX_ADDITIONAL_STATIONS_SEARCH sınırı içinde hedefe ulaşılamazsa
+        (None, denenen_istasyonlar) döner.
+
+        Performans: her adayın KENDİ BAŞINA pass window'ları BİR KEZ
+        hesaplanır ve önbelleğe alınır (`candidate_windows`); greedy seçim
+        adımları sadece ucuz `schedule_passes` karşılaştırması yapar, pahalı
+        astropy hesaplaması tekrarlanmaz.
         """
         if base_loss_ratio <= 0.0:
-            return 0
+            return 0, []
 
         target_ratio = base_loss_ratio * (1.0 - reduction_pct / 100.0)
-        max_extra = min(MAX_ADDITIONAL_STATIONS_SEARCH, len(CANDIDATE_GROUND_STATIONS) - base_station_count)
+        remaining_pool = CANDIDATE_GROUND_STATIONS[base_station_count:]
+        max_extra = min(MAX_ADDITIONAL_STATIONS_SEARCH, len(remaining_pool))
+        if max_extra == 0:
+            return None, []
+
+        candidate_windows = {}
+        for cand in remaining_pool:
+            station = GroundStation(name=cand["name"], lat_deg=cand["lat_deg"], lon_deg=cand["lon_deg"])
+            candidate_windows[cand["name"]] = compute_all_pass_windows(
+                satellites, [station], start_utc, end_utc, propagate_satrec_single
+            )
 
         accumulated_windows = list(base_windows)
+        available = dict(candidate_windows)
+        chosen_names: List[str] = []
+
         for extra in range(1, max_extra + 1):
-            new_station = self._build_stations(base_station_count + extra)[-1]
-            new_windows = compute_all_pass_windows(
-                satellites, [new_station], start_utc, end_utc, propagate_satrec_single
-            )
-            accumulated_windows.extend(new_windows)
+            best_name, best_windows, best_loss = None, None, None
+            for name, windows in available.items():
+                trial_loss = schedule_passes(accumulated_windows + windows).capacity_loss_ratio
+                if best_loss is None or trial_loss < best_loss:
+                    best_name, best_windows, best_loss = name, windows, trial_loss
 
-            loss_ratio = schedule_passes(accumulated_windows).capacity_loss_ratio
-            if loss_ratio <= target_ratio:
-                return extra
+            accumulated_windows.extend(best_windows)
+            available.pop(best_name)
+            chosen_names.append(best_name)
 
-        return None
+            if best_loss <= target_ratio:
+                return extra, chosen_names
+
+        return None, chosen_names
 
     def run_scenario(
             self,
@@ -115,7 +144,7 @@ class CapacityPlanningService:
         windows = compute_all_pass_windows(satellites, stations, start_utc, end_utc, propagate_satrec_single)
         base_result = schedule_passes(windows)
 
-        additional_needed = self._stations_needed_for_target(
+        additional_needed, stations_path = self._stations_needed_for_target(
             satellites, num_stations, windows, base_result.capacity_loss_ratio, start_utc, end_utc
         )
 
@@ -127,6 +156,7 @@ class CapacityPlanningService:
             missed_passes=base_result.missed_passes,
             capacity_loss_pct=base_result.capacity_loss_ratio * 100.0,
             additional_stations_for_target=additional_needed,
+            additional_stations_path=stations_path or None,
         )
 
     def run_all_scenarios(

@@ -39,6 +39,7 @@ class ScenarioResultOut(BaseModel):
     missed_passes: int
     capacity_loss_pct: float
     additional_stations_for_target: Optional[int]
+    additional_stations_path: Optional[List[str]]
 
 
 @router.get("/stations", response_model=List[GroundStationOut])

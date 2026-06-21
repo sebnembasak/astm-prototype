@@ -47,7 +47,9 @@ Bu senaryolardan çıkan en önemli sonuç: **istasyon eklemek kapasiteyi otomat
 | 25 | %37.8 kayıp | **%52.8 kayıp** | %50.0 kayıp |
 | 80 | %54.6 kayıp | **%73.3 kayıp** | %70.0 kayıp |
 
-Gerçek dünyada SSO ağırlıklı yer gözlem operatörleri (Planet Labs, ICEYE benzeri) bu nedenle kutup/yarı-kutup bölgesinde çoklu istasyon veya yüksek-verim yer segmentine yatırım yapar. Detaylı analiz ve tam senaryo tablosu: [RELEASE.md](RELEASE.md#bulgu-kutup-istasyonu-darboğazı).
+**Daha güçlü bulgu:** Bu sıralı sonucun "yanlış istasyon seçimi" değil yapısal bir kısıt olduğunu doğrulamak için, sabit liste sırası yerine her adımda kalan tüm adayları deneyip kaybı en çok azaltanı seçen bir **greedy en-iyi-istasyon araması** çalıştırıldı. Greedy gerçekten doğru çalışıyor — kutup-bölgesi istasyonlarını (Punta Arenas, Reykjavik, Fairbanks) bilerek en sona bırakıyor (örn. 10 uydu/1 istasyon için seçilen sıra: Singapore→Perth→Toronto→Quito→Cape Town→Wellington→Tokyo→Punta Arenas→Reykjavik→Fairbanks). Buna rağmen **12 adaylık havuzun tamamı en iyi sırayla eklense bile** hiçbir senaryoda %50 kayıp-azaltma hedefine ulaşılamadı. Bu, basit coğrafi istasyon eklemenin (en iyi seçimle bile) yeterli olmayabileceğine işaret eden bir gözlem — yüksek-verim/çoklu-anten istasyon veya inter-satellite link gibi farklı bir yer-segmenti stratejisi gerekebilir, ama bu kesin bir çözüm reçetesi değil, bir hipotezdir.
+
+Gerçek dünyada SSO ağırlıklı yer gözlem operatörleri (Planet Labs, ICEYE benzeri) bu nedenle kutup/yarı-kutup bölgesinde çoklu istasyon veya yüksek-verim yer segmentine yatırım yapar. Modelin varsayımları (10° elevasyon eşiği, istasyon başına tek-kanal, 12 aday lokasyon, 24 saatlik pencere) altında geçerli bir gözlemdir, kesin bir imkansızlık iddiası değildir. Detaylı analiz ve tam senaryo tablosu: [RELEASE.md](RELEASE.md#bulgu-kutup-istasyonu-darboğazı).
 
 #### Veri ve Varsayımlar Şeffaflığı
 | Parametre | Etiket |
