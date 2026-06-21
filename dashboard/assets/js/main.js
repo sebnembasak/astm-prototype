@@ -1020,10 +1020,21 @@ async function calculateManeuver() {
         document.getElementById('gs-total-passes').innerText = result.total_passes;
         document.getElementById('gs-missed-passes').innerText = result.missed_passes;
         document.getElementById('gs-loss-pct').innerText = `%${result.capacity_loss_pct.toFixed(1)}`;
-        document.getElementById('gs-extra-stations').innerText =
-            (result.additional_stations_for_target === null || result.additional_stations_for_target === undefined)
-                ? 'Havuz Yetersiz'
-                : `+${result.additional_stations_for_target} İstasyon`;
+
+        const unreachable = (result.additional_stations_for_target === null || result.additional_stations_for_target === undefined);
+        document.getElementById('gs-extra-stations').innerText = unreachable
+            ? 'Havuz Yetersiz'
+            : `+${result.additional_stations_for_target} İstasyon`;
+
+        const noteEl = document.getElementById('gs-extra-stations-note');
+        const path = result.additional_stations_path;
+        if (!path || path.length === 0) {
+            noteEl.innerText = '';
+        } else if (unreachable) {
+            noteEl.innerText = `En iyi sırayla (${path.join(' → ')}) bile mevcut ${path.length} adayla ulaşılamıyor`;
+        } else {
+            noteEl.innerText = `Seçilen sıra: ${path.join(' → ')}`;
+        }
     }
 
     async function runGroundScenario() {
@@ -1065,9 +1076,12 @@ async function calculateManeuver() {
         const body = document.getElementById('gs-scenario-table-body');
         body.innerHTML = "";
         results.forEach(r => {
-            const extra = (r.additional_stations_for_target === null || r.additional_stations_for_target === undefined)
-                ? '<span class="text-secondary">Havuz Yetersiz</span>'
-                : `+${r.additional_stations_for_target}`;
+            const unreachable = (r.additional_stations_for_target === null || r.additional_stations_for_target === undefined);
+            const extra = unreachable ? '<span class="text-secondary">Havuz Yetersiz</span>' : `+${r.additional_stations_for_target}`;
+            const path = r.additional_stations_path;
+            const pathTitle = (path && path.length)
+                ? (unreachable ? `Denenen sıra (en iyiden en kötüye): ${path.join(' → ')}` : `Seçilen sıra: ${path.join(' → ')}`)
+                : '';
             body.innerHTML += `
                 <tr>
                     <td>${r.num_satellites}</td>
@@ -1075,7 +1089,7 @@ async function calculateManeuver() {
                     <td>${r.total_passes}</td>
                     <td class="text-danger">${r.missed_passes}</td>
                     <td class="text-warning">%${r.capacity_loss_pct.toFixed(1)}</td>
-                    <td>${extra}</td>
+                    <td title="${pathTitle}" style="${pathTitle ? 'cursor: help; border-bottom: 1px dotted;' : ''}">${extra}</td>
                 </tr>`;
         });
     }
