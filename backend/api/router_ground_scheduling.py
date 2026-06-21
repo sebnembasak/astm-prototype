@@ -99,7 +99,7 @@ async def run_scenario_grid(
         duration_hours: int = Query(DEFAULT_SCENARIO_DURATION_HOURS, gt=0),
 ):
     """
-    Hello Space'in büyüme hedefine paralel uydu sayıları (varsayılan 3/10/30/80)
+    Büyüme hedefine paralel uydu sayıları (varsayılan 3/10/30/80)
     x istasyon sayıları (varsayılan 1/2/3) ızgarasını tarayıp, her kombinasyon
     için kapasite kaybı senaryosu üretir. Dashboard'daki senaryo karşılaştırma
     grafiğinin veri kaynağıdır.

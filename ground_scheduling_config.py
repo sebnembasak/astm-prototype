@@ -1,6 +1,6 @@
 """
 Ground Station Scheduling & Capacity Planning modülü için sabitler.
-Hello Space tipi pocketqube constellation operatörleri için tasarlandı:
+Büyüyen pocketqube/IoT uydu constellation operatörleri için tasarlandı:
 büyüyen uydu sayısı (3 -> 80) ile sınırlı yer istasyonu kapasitesi arasındaki
 çakışmaları analiz eder.
 """
@@ -18,15 +18,16 @@ DEFAULT_SCENARIO_DURATION_HOURS = 24
 SCENARIO_SATELLITE_COUNTS = [3, 10, 30, 80]
 SCENARIO_STATION_COUNTS = [1, 2, 3]
 
-# Hello Space'in gerçek (planlanan) yörünge profili: 525km güneş-senkron (SSO).
+# Hedeflenen referans yörünge profili: 525km güneş-senkron (SSO), büyüyen
+# pocketqube/IoT constellation operatörlerinde tipik bir profil.
 # Senaryo motoru, DB'deki TÜM TLE kataloğundan (stations/visual/debris/resource
 # karışımı) rastgele/alfabetik seçim yapmak yerine, bu profile yakın GERÇEK
 # nesneleri (TLE'den çıkarılan inklinasyon + irtifa) seçer — böylece "25/80
 # uydu" senaryoları alakasız debris/ISS gibi nesnelerle değil, benzer yörünge
 # geometrisine (dolayısıyla benzer geçiş süresi/sıklığı istatistiğine) sahip
 # gerçek LEO/SSO nesneleriyle çalışır.
-HELLO_SPACE_TARGET_ALTITUDE_KM = 525.0
-HELLO_SPACE_TARGET_INCLINATION_DEG = 97.5
+REFERENCE_ORBIT_ALTITUDE_KM = 525.0
+REFERENCE_ORBIT_INCLINATION_DEG = 97.5
 
 # Polar/SSO bandı: kutup yörüngeleri ~90°, SSO'lar irtifaya bağlı olarak
 # ~97-99° arası sürünme (regresyon) inklinasyonu gerektirir; 90-100° aralığı
@@ -42,7 +43,7 @@ MAX_ADDITIONAL_STATIONS_SEARCH = 10
 
 # Senaryolarda asıl yapılandırılan istasyon sayısının ötesine geçilince
 # eklenecek aday istasyon havuzu (küresel kapsama çeşitliliği için dağıtılmış).
-# Hello Space Ankara merkezli olduğu için ilk istasyon Ankara.
+# Operatör merkezi Ankara kabul edildiği için ilk istasyon Ankara.
 CANDIDATE_GROUND_STATIONS = [
     {"name": "Ankara", "lat_deg": 39.93, "lon_deg": 32.86},
     {"name": "Svalbard", "lat_deg": 78.23, "lon_deg": 15.39},

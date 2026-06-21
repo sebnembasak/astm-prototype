@@ -17,7 +17,7 @@ from processing.propagate_wrapper import propagate_satrec_single
 from service.tle_service import tle_service
 
 """
-Hello Space tipi büyüyen bir pocketqube constellation operatörü için kapasite
+Büyüyen bir pocketqube/IoT uydu constellation operatörü için kapasite
 planlama senaryo motoru: farklı uydu sayısı (3/10/30/80) x farklı istasyon
 sayısı (1/2/3) kombinasyonlarında, geçişlerin ne kadarının çakışmadan
 kaybedildiğini (kapasite kaybı) hesaplar ve "bu kaybı %50 azaltmak için kaç
@@ -41,7 +41,7 @@ class ScenarioResult:
 class CapacityPlanningService:
 
     def _load_satellites(self, count: int) -> List[Tuple[int, str, object]]:
-        """tle_service'ten Hello Space'in 525km/97.5° SSO profiline yakın
+        """tle_service'ten 525km/97.5° SSO referans profiline yakın
         GERÇEK TLE'leri okur (bkz. tle_service.get_satellites_by_orbit_profile),
         sgp4 Satrec'e çevirir. Katalogda bu yörünge bandında istenen sayıdan az
         nesne varsa mevcut olanlarla devam eder."""
@@ -165,7 +165,7 @@ class CapacityPlanningService:
             station_counts: List[int] = None,
             duration_hours: int = DEFAULT_SCENARIO_DURATION_HOURS,
     ) -> List[ScenarioResult]:
-        """Hello Space'in büyüme hedefine paralel uydu sayıları x istasyon sayıları
+        """Büyüme hedefine paralel uydu sayıları x istasyon sayıları
         ızgarasını tarayıp, her kombinasyon için kapasite kaybı senaryosu üretir."""
         satellite_counts = satellite_counts or SCENARIO_SATELLITE_COUNTS
         station_counts = station_counts or SCENARIO_STATION_COUNTS
