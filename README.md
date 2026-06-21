@@ -16,7 +16,7 @@ Frontend ise etkileşimli bir Dashboard, Uydu Kataloğu ve Canlı Harita Görsel
 * **Çarpışma Tarama (Conjunction Screening):**
     * **Broad Phase:** Uyduları coğrafi olarak gruplayarak (KD-Tree ile O(N logN)) potansiyel çarpışma adaylarını hızla eler/budar (`processing/pruner.py`).
     * **Narrow Phase:** Kalan aday çiftler için SGP4 modeli ve Skalar Optimizasyon (Bisection/Brent) kullanarak En Yakın Geçiş Zamanı (TCA) ve En Kısa Mesafe'yi (Miss Distance) hassas bir şekilde hesaplar.
-    * **Bilinen sınırlama (bkz. [RELEASE.md](RELEASE.md#bilinen-sınırlamalar)):** Broad-phase budama TEK bir anlık görüntüde (tarama anı, t0) çalışır; 2 saatlik analiz penceresi içinde TCA'sı t0'a göre uzak olan (ama t0 anında 300km'den fazla mesafede olan) çiftler budama aşamasını hiç geçemeyebilir. Yüksek bağıl hızlı (dolayısıyla en riskli) yakınlaşmalar bu etkiden en çok etkilenenlerdir.
+    * **Bilinen sınırlama (bkz. [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md)):** Broad-phase budama TEK bir anlık görüntüde (tarama anı, t0) çalışır; 2 saatlik analiz penceresi içinde TCA'sı t0'a göre uzak olan (ama t0 anında 300km'den fazla mesafede olan) çiftler budama aşamasını hiç geçemeyebilir. Yüksek bağıl hızlı (dolayısıyla en riskli) yakınlaşmalar bu etkiden en çok etkilenenlerdir.
 * **Manevra Optimizasyonu (Maneuver Optimization):**
     * Çarpışma riskini azaltmak için gereken minimum DeltaV (yakıt maliyeti) vektörünü bulmak için kısıtlanmış L-BFGS-B (Box-Constrained Broyden–Fletcher–Goldfarb–Shanno) algoritmasını kullanır.
     * Manevra, TCA'dan belirli bir süre önce (örneğin 1 saat) yapılan anlık (impulsive) bir hız değişimi olarak modellenir.
@@ -161,6 +161,8 @@ Proje, Servis Katmanı Mimarisi (Service Layer Architecture) kullanılarak tasar
 | **backend/models** | Veritabanı şemaları ve bağlantı ayarları (`db.py`).                                                       |
 | **main.py** | FastAPI uygulamasının ana giriş noktası.                                                                  |
 | **assets/** | CSS, JS ve görsel dosyaları.                                                                              |
+
+Projenin bilinen sınırlamaları ve kaynaksız varsayımları şeffafça belgelenmiştir: [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Diyagramlar
 ### Sistem Mimarisi Diyagramı:
