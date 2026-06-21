@@ -1,8 +1,14 @@
 import sqlite3
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from backend.models.db import get_conn
 from ingest.tle_fetcher import fetch_and_store
-from processing.propagator import tle_to_satrec
+from processing.propagator import tle_to_satrec, orbit_params_from_tle
+from ground_scheduling_config import (
+    HELLO_SPACE_TARGET_ALTITUDE_KM,
+    HELLO_SPACE_TARGET_INCLINATION_DEG,
+    ORBIT_FILTER_INCLINATION_RANGE_DEG,
+    ORBIT_FILTER_ALTITUDE_RANGE_KM,
+)
 
 
 class TleService:
@@ -23,6 +29,51 @@ class TleService:
         rows = cur.fetchall()
         conn.close()
         return [dict(row) for row in rows]
+
+    def get_satellites_by_orbit_profile(
+            self,
+            limit: int = 100,
+            inclination_range_deg: Tuple[float, float] = ORBIT_FILTER_INCLINATION_RANGE_DEG,
+            altitude_range_km: Tuple[float, float] = ORBIT_FILTER_ALTITUDE_RANGE_KM,
+            target_altitude_km: float = HELLO_SPACE_TARGET_ALTITUDE_KM,
+            target_inclination_deg: float = HELLO_SPACE_TARGET_INCLINATION_DEG,
+    ) -> List[Dict[str, Any]]:
+        """
+        DB'deki tüm TLE kataloğundan, verilen inklinasyon/irtifa bandına
+        (varsayılan: Hello Space'in 525km/97.5° SSO profiline yakın LEO polar/SSO
+        bandı) düşen GERÇEK nesneleri döner; alakasız debris/ISS gibi farklı
+        yörünge ailelerini eler. Bant içindekiler, hedef profile (irtifa +
+        inklinasyon, normalize edilmiş öklid uzaklığı) en yakın olandan en
+        uzağa sıralanır, böylece N istendiğinde en temsili N nesne seçilir
+        (alfabetik/rastgele değil).
+        """
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT id, sat_name, epoch, source, fetched_at, line1, line2 FROM raw_tles")
+        rows = [dict(row) for row in cur.fetchall()]
+        conn.close()
+
+        inc_min, inc_max = inclination_range_deg
+        alt_min, alt_max = altitude_range_km
+
+        candidates = []
+        for row in rows:
+            try:
+                inc_deg, alt_km = orbit_params_from_tle(row["line1"], row["line2"])
+            except Exception:
+                continue
+            if not (inc_min <= inc_deg <= inc_max and alt_min <= alt_km <= alt_max):
+                continue
+            distance = (
+                ((alt_km - target_altitude_km) / (alt_max - alt_min)) ** 2
+                + ((inc_deg - target_inclination_deg) / (inc_max - inc_min)) ** 2
+            )
+            row["inclination_deg"] = inc_deg
+            row["altitude_km"] = alt_km
+            candidates.append((distance, row))
+
+        candidates.sort(key=lambda pair: pair[0])
+        return [row for _, row in candidates[:limit]]
 
     def get_total_count(self) -> int:
         """Veritabanındaki toplam uydu sayısını döner."""

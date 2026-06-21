@@ -10,6 +10,7 @@
         ];
 
         let map;
+        let gsMap;
         let activeLayers = {};
         let selectedAlert = null;
         let searchTimeout;
@@ -86,6 +87,10 @@
             renderSpaceRegimeHeatmap();
             }
             if(id === 'maneuver-detection') loadManeuverEvents();
+            if(id === 'ground-scheduling') {
+                if (!gsMap) initGroundStationMap();
+                else setTimeout(() => gsMap.invalidateSize(), 200);
+            }
         }
 
         function showLoading(show, text="İşleniyor...") {
@@ -973,4 +978,145 @@ async function calculateManeuver() {
             alert("Teknik rapor yüklenirken bir hata oluştu. Lütfen önce modeli eğitin.");
         }
 
+    }
+
+    // ============== Yer İstasyonu Kapasite Planlama ==============
+
+    async function initGroundStationMap() {
+        gsMap = L.map('gs-map', {zoomControl: true, attributionControl: false}).setView([20, 20], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            subdomains: 'abcd'
+        }).addTo(gsMap);
+
+        try {
+            const res = await fetch(`${API_BASE}/ground-scheduling/candidate-stations`);
+            const stations = await res.json();
+            stations.forEach(s => {
+                L.circleMarker([s.lat_deg, s.lon_deg], {
+                    radius: 7, color: '#00f3ff', fillColor: '#00f3ff', fillOpacity: 0.6, weight: 2
+                }).addTo(gsMap).bindPopup(`<strong>${s.name}</strong><br>Yer İstasyonu (Aday)`);
+            });
+        } catch (e) { console.error("İstasyon haritası yüklenemedi:", e); }
+
+        try {
+            const satRes = await fetch(`${API_BASE}/tle/list?limit=30`);
+            const sats = await satRes.json();
+            for (const sat of sats.slice(0, 15)) {
+                try {
+                    const pathRes = await fetch(`${API_BASE}/orbit/propagate/${sat.id}?duration_minutes=1&step_seconds=1`);
+                    const path = await pathRes.json();
+                    if (path && path.length) {
+                        L.circleMarker([path[0].lat, path[0].lon], {
+                            radius: 3, color: '#0aff60', fillColor: '#0aff60', fillOpacity: 0.8, weight: 1
+                        }).addTo(gsMap).bindPopup(`<strong>${sat.sat_name}</strong><br>Uydu`);
+                    }
+                } catch (e) { /* tekil uydu hatasını yut, haritanın kalanı yüklensin */ }
+            }
+        } catch (e) { console.error("Uydu görselleştirme yüklenemedi:", e); }
+    }
+
+    function renderGroundScenarioStats(result) {
+        document.getElementById('gs-total-passes').innerText = result.total_passes;
+        document.getElementById('gs-missed-passes').innerText = result.missed_passes;
+        document.getElementById('gs-loss-pct').innerText = `%${result.capacity_loss_pct.toFixed(1)}`;
+        document.getElementById('gs-extra-stations').innerText =
+            (result.additional_stations_for_target === null || result.additional_stations_for_target === undefined)
+                ? 'Havuz Yetersiz'
+                : `+${result.additional_stations_for_target} İstasyon`;
+    }
+
+    async function runGroundScenario() {
+        const numSatellites = parseInt(document.getElementById('gs-num-satellites').value, 10);
+        const numStations = parseInt(document.getElementById('gs-num-stations').value, 10);
+        const durationHours = parseInt(document.getElementById('gs-duration-hours').value, 10);
+
+        showLoading(true, "Geçiş pencereleri hesaplanıyor...");
+        try {
+            const res = await fetch(`${API_BASE}/ground-scheduling/scenario?num_satellites=${numSatellites}&num_stations=${numStations}&duration_hours=${durationHours}`);
+            if (!res.ok) throw new Error(await res.text());
+            const result = await res.json();
+            renderGroundScenarioStats(result);
+        } catch (e) {
+            console.error("Senaryo hatası:", e);
+            alert("Senaryo çalıştırılırken bir hata oluştu.");
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function runGroundScenarioGrid() {
+        showLoading(true, "Senaryo ızgarası taranıyor (3/10/30/80 uydu × 1/2/3 istasyon)...");
+        try {
+            const res = await fetch(`${API_BASE}/ground-scheduling/scenarios`);
+            if (!res.ok) throw new Error(await res.text());
+            const results = await res.json();
+            renderGroundScenarioTable(results);
+            renderGroundScenarioChart(results);
+        } catch (e) {
+            console.error("Senaryo ızgarası hatası:", e);
+            alert("Senaryo ızgarası çalıştırılırken bir hata oluştu.");
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    function renderGroundScenarioTable(results) {
+        const body = document.getElementById('gs-scenario-table-body');
+        body.innerHTML = "";
+        results.forEach(r => {
+            const extra = (r.additional_stations_for_target === null || r.additional_stations_for_target === undefined)
+                ? '<span class="text-secondary">Havuz Yetersiz</span>'
+                : `+${r.additional_stations_for_target}`;
+            body.innerHTML += `
+                <tr>
+                    <td>${r.num_satellites}</td>
+                    <td>${r.num_stations}</td>
+                    <td>${r.total_passes}</td>
+                    <td class="text-danger">${r.missed_passes}</td>
+                    <td class="text-warning">%${r.capacity_loss_pct.toFixed(1)}</td>
+                    <td>${extra}</td>
+                </tr>`;
+        });
+    }
+
+    function renderGroundScenarioChart(results) {
+        const canvas = document.getElementById('gsScenarioChart');
+        if (!canvas) return;
+
+        const satCounts = [...new Set(results.map(r => r.num_satellites))].sort((a, b) => a - b);
+        const stationCounts = [...new Set(results.map(r => r.num_stations))].sort((a, b) => a - b);
+
+        const datasets = stationCounts.map((stationCount, idx) => ({
+            label: `${stationCount} İstasyon`,
+            data: satCounts.map(satCount => {
+                const match = results.find(r => r.num_satellites === satCount && r.num_stations === stationCount);
+                return match ? match.capacity_loss_pct : null;
+            }),
+            backgroundColor: NEON_COLORS[idx % NEON_COLORS.length],
+            borderColor: NEON_COLORS[idx % NEON_COLORS.length],
+            borderWidth: 1
+        }));
+
+        const ctx = canvas.getContext('2d');
+        if (window.gsScenarioChartObj) window.gsScenarioChartObj.destroy();
+        window.gsScenarioChartObj = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: satCounts.map(c => `${c} Uydu`), datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: 'rgba(255,255,255,0.6)' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: {
+                        title: { display: true, text: 'Kapasite Kaybı (%)', color: 'rgba(255,255,255,0.6)' },
+                        ticks: { color: 'rgba(255,255,255,0.5)' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: 'rgba(255,255,255,0.7)', font: { size: 10 } } }
+                }
+            }
+        });
     }

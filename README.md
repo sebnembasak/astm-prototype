@@ -31,6 +31,35 @@ Sistem, ham TLE verilerini kullanarak uyduların davranışlarını ve gizli gö
 * **Sönümlenme (Decay) Analizi:** BSTAR sürüklenme katsayısı ve irtifa verilerini hibritleyerek uydunun atmosfere düşme riskini (Düşük/Orta/Yüksek) hesaplar.
 * **Teknik Performans Raporu:** Modelin başarı metriklerini (Accuracy, F1-Score, ROC-AUC, Confusion Matrix) radar grafikler ve ısı haritaları ile anlık olarak sunar.
 
+### Yer İstasyonu Planlama & Kapasite Analizi (Ground Station Scheduling)
+Büyüyen pocketqube/IoT uydu constellation'ları (örn. Hello Space) için, sınırlı yer istasyonu sayısıyla artan uydu sayısı arasındaki operasyonel darboğazı modeller:
+
+* **AOS/LOS Hesabı:** Mevcut SGP4 propagasyon altyapısını (`processing/propagator.py`) yer istasyonuna göre topocentric elevasyon açısına (AltAz dönüşümü) genişletir; bir uydunun istasyon üzerinden geçiş penceresini (Acquisition/Loss of Signal) ve maksimum elevasyonunu hesaplar.
+* **Çakışma Tespiti:** Aynı istasyonda zaman içinde örtüşen geçiş pencerelerini ve çakışma oranını tespit eder.
+* **İstasyon-Bağımlı EFT Greedy Çizelgeleme:** Her geçiş penceresi kendi istasyonunun geometrisine bağlı olduğundan, çizelgeleme istasyon başına bağımsız bir tek-kaynak (single-resource) problemi olarak Earliest-Finish-Time greedy algoritmasıyla çözülür (tek kaynak için ispatlanmış optimal).
+* **Kapasite Planlama Senaryoları:** Hello Space'in 525km/97.5° SSO yörünge profiline yakın **gerçek** Celestrak nesneleri (`tle_service.get_satellites_by_orbit_profile`, debris/ISS gibi alakasız yörünge aileleri elenerek) kullanılarak, 3/10/30/80 uydu × 1/2/3 istasyon ızgarasında kapasite kaybını (kaçırılan geçiş oranı) karşılaştırır ve "kaybı %50 azaltmak için kaç ek istasyon gerekir" sorusuna geriye-doğru arama ile cevap üretir.
+
+#### Bulgu: Kutup İstasyonu Darboğazı
+Bu senaryolardan çıkan en önemli sonuç: **istasyon eklemek kapasiteyi otomatik artırmıyor.** SSO/polar yörüngeli (97.5° inklinasyon) uydular, kutup-bölgesi istasyonlarından (örn. Svalbard, 78°N) her turda görülür (günde ~10-15 kez), orta enlemden (örn. Ankara, 40°N) ise sadece birkaç kez. Yeni eklenen istasyon da yüksek-görünürlük (kutup) bölgesindeyse, kapasiteden çok talebi büyütüp mevcut darboğazı genişletebiliyor:
+
+| Uydu | 1 İstasyon | 2 İstasyon (+Svalbard) | 3 İstasyon (+Punta Arenas) |
+|:---:|:---:|:---:|:---:|
+| 25 | %37.8 kayıp | **%52.8 kayıp** | %50.0 kayıp |
+| 80 | %54.6 kayıp | **%73.3 kayıp** | %70.0 kayıp |
+
+Gerçek dünyada SSO ağırlıklı yer gözlem operatörleri (Planet Labs, ICEYE benzeri) bu nedenle kutup/yarı-kutup bölgesinde çoklu istasyon veya yüksek-verim yer segmentine yatırım yapar. Detaylı analiz ve tam senaryo tablosu: [RELEASE.md](RELEASE.md#bulgu-kutup-istasyonu-darboğazı).
+
+#### Veri ve Varsayımlar Şeffaflığı
+| Parametre | Etiket |
+|---|---|
+| TLE verisi | **Gerçek** (Celestrak `stations`/`visual`/`debris`/`resource`, canlı fetch) |
+| Senaryo uydu seçimi | **Gerçek veri**, Hello Space'in SSO profiline en yakın nesneler — Hello Space'in kendi constellation'ı değil, benzer yörünge fiziğine sahip gerçek nesneler |
+| İstasyon koordinatları | **Gerçek koordinat**, varsayımsal aday havuzu (fiilen kurulu istasyon iddiası yok) |
+| `min_elevation_deg=10°` | **Mühendislik varsayımı**, SATCOM endüstri pratiğine uygun (ITU-R P.618), Hello Space'e özgü kalibre edilmemiş |
+| Tarama adımı / senaryo süresi / uydu sayıları | **Mühendislik varsayımları** (performans-hassasiyet dengesi, günlük döngü, büyüme tahmini) |
+
+Tam tablo ve gerekçeler: [RELEASE.md](RELEASE.md#veri-ve-varsayımlar-şeffaflığı).
+
 ### Frontend
 
 * **Canlı Harita Görünümü:** Leaflet.js haritası üzerinde, seçilen uyduların SGP4 ile hesaplanmış yörünge yollarını (Lat/Lon/Alt) görselleştirir.
@@ -103,6 +132,9 @@ Demo videosuna ve rapora ```docs``` dizininden ulaşabilirsiniz. Demo videosunu 
 | **Budama (Pruner)** | `processing/pruner.py` | **cKDTree** kullanarak binlerce uydu arasından sadece birbirine yakın olan aday çiftleri hızlıca seçer |
 | **Manevra Optimizasyonu** | `planner/optimizer.py` | **Scipy.optimize** (L-BFGS-B) kullanarak çarpışma sonrası güvenli mesafeyi sağlayan minimum DeltaV değerini bulur |
 | **Manevra Tespiti** | `processing/maneuver_detection.py` | Ardışık TLE'lerin mean orbital elementlerinden (faz-bağımsız) fizik tabanlı ΔV tahminiyle geçmiş manevraları tespit eder |
+| **Yer İstasyonu Görüş Geometrisi** | `processing/ground_station.py` | TEME konumundan topocentric elevasyon açısı hesaplar, AOS/LOS geçiş pencerelerini bulur |
+| **Çakışma Tespiti (İstasyon)** | `processing/schedule_conflict.py` | Aynı istasyonda zaman içinde örtüşen geçiş pencerelerini ve çakışma oranını tespit eder |
+| **Yer İstasyonu Çizelgeleme** | `planner/ground_scheduler.py` | İstasyon-bağımlı Earliest-Finish-Time greedy algoritmasıyla çakışan geçişler arasından atama yapar |
 
 ## Test ve Doğrulama
 

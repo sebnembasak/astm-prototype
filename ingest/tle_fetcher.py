@@ -13,6 +13,11 @@ CELESTRAK_GROUPS = {
     "stations": "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle",
     "visual":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=visual&FORMAT=tle",
     "debris":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=debris&FORMAT=tle",
+    # "resource" (Landsat/Sentinel/SCD tipi yer gözlem uyduları) ağırlıklı
+    # olarak güneş-senkron (SSO) polar yörüngede; ground-scheduling senaryo
+    # motorunun Hello Space'in 525km SSO profiline yakın gerçek nesne araması
+    # için ana havuz budur (bkz. service/tle_service.get_satellites_by_orbit_profile).
+    "resource":  "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle",
 }
 
 

@@ -44,6 +44,9 @@
         <div class="nav-item" onclick="showSection('maneuver-detection', this)">
             <i class="fas fa-rocket"></i> Manevra Tespiti
         </div>
+        <div class="nav-item" onclick="showSection('ground-scheduling', this)">
+            <i class="fas fa-satellite-dish"></i> Yer İstasyonu Planlama
+        </div>
 
     </div>
 
@@ -380,6 +383,106 @@
             </div>
         </div>
 
+        <div id="ground-scheduling" class="content-section d-none animate__animated animate__fadeIn">
+            <h3 class="mb-4 fw-light"><i class="fas fa-satellite-dish text-info me-2"></i>Yer İstasyonu Kapasite Planlama</h3>
+
+            <div class="row g-4 mb-2">
+                <div class="col-lg-7">
+                    <div class="card-glass h-100">
+                        <div class="card-header-glass">
+                            <span><i class="fas fa-map-marked-alt me-2"></i>İstasyon &amp; Uydu Görselleştirme</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="gs-map" style="height: 380px; border-radius: 0 0 12px 12px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="card-glass h-100">
+                        <div class="card-header-glass">Senaryo Parametreleri</div>
+                        <div class="card-body">
+                            <p class="small opacity-75">
+                                Constellation büyüklüğü arttıkça (Hello Space'in büyüme hedefine paralel
+                                3 → 10 → 30 → 80 uydu), sınırlı istasyon kapasitesiyle çakışan geçişlerin
+                                ne kadarının kaybedildiğini ölçer.
+                            </p>
+                            <div class="mb-3">
+                                <label class="form-label small">Uydu Sayısı</label>
+                                <input type="number" id="gs-num-satellites" class="form-control bg-dark text-white border-secondary" value="10" min="1">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small">İstasyon Sayısı</label>
+                                <input type="number" id="gs-num-stations" class="form-control bg-dark text-white border-secondary" value="1" min="1" max="12">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small">Süre (saat)</label>
+                                <input type="number" id="gs-duration-hours" class="form-control bg-dark text-white border-secondary" value="24" min="1">
+                            </div>
+                            <button class="btn btn-outline-info w-100 py-2" onclick="runGroundScenario()">
+                                <i class="fas fa-play me-2"></i>Senaryoyu Çalıştır
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-2">
+                <div class="col-md-3">
+                    <div class="card-glass p-3 text-center">
+                        <div class="small text-uppercase ls-1">Toplam Geçiş</div>
+                        <div class="h3 fw-bold text-white my-1" id="gs-total-passes">--</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card-glass p-3 text-center">
+                        <div class="small text-uppercase ls-1">Kaçırılan Geçiş</div>
+                        <div class="h3 fw-bold text-danger my-1" id="gs-missed-passes">--</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card-glass p-3 text-center">
+                        <div class="small text-uppercase ls-1">Kapasite Kaybı</div>
+                        <div class="h3 fw-bold text-warning my-1" id="gs-loss-pct">--</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card-glass p-3 text-center">
+                        <div class="small text-uppercase ls-1">%50 Kayıp Azaltmak İçin</div>
+                        <div class="h3 fw-bold text-success my-1" id="gs-extra-stations">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-glass">
+                <div class="card-header-glass d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-chart-bar me-2"></i>Senaryo Karşılaştırması (3/10/30/80 Uydu × 1/2/3 İstasyon)</span>
+                    <button class="btn btn-sm btn-outline-success" onclick="runGroundScenarioGrid()">
+                        <i class="fas fa-th me-2"></i>Tüm Senaryoları Çalıştır
+                    </button>
+                </div>
+                <div class="card-body">
+                    <canvas id="gsScenarioChart" style="max-height: 320px;"></canvas>
+                    <div class="table-responsive mt-4">
+                        <table class="table table-space table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Uydu Sayısı</th>
+                                    <th>İstasyon Sayısı</th>
+                                    <th>Toplam Geçiş</th>
+                                    <th>Kaçırılan</th>
+                                    <th>Kapasite Kaybı</th>
+                                    <th>%50 Azaltmak İçin Ek İstasyon</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gs-scenario-table-body">
+                                <tr><td colspan="6" class="text-center opacity-50">Henüz bir senaryo çalıştırılmadı.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <footer class="mt-auto pt-3 pb-2 animate__animated animate__fadeInUp">
             <div class="card-glass p-3 footer-glass">
                 <div class="row align-items-center justify-content-between">
@@ -394,7 +497,7 @@
                     <div class="col-auto pe-4">
                         <div class="font-mono small text-secondary opacity-75" style="font-size: 0.75rem;">
                             <span class="me-3">Developed by <span class="text-white fw-bold">Şebnem Başak</span></span>
-                            <span class="border-start border-secondary ps-3" title="Versiyon">v1.3.0</span>
+                            <span class="border-start border-secondary ps-3" title="Versiyon">v1.4.0</span>
                         </div>
                     </div>
 

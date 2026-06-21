@@ -1,3 +1,79 @@
+# Release Notes - v1.4.0 (Ground Station Scheduling & Capacity Planning)
+
+> **Ana Bulgu:** SSO/polar yörüngeli (Hello Space tipi) constellation'larda kapasite kaybı, istasyon sayısından çok istasyonların coğrafi konumuna bağlı. Kutup-bölgesi istasyonları (örn. Svalbard) SSO uydularını her turda gördüğü için orantısız geçiş yoğunluğu üretir; rastgele/coğrafi-çeşitlilik amaçlı bir istasyon eklemek kaybı azaltmak yerine **artırabilir**. Detay: [Bulgu: Kutup İstasyonu Darboğazı](#bulgu-kutup-istasyonu-darboğazı).
+
+## Genel Bakış
+Bu sürüm, büyüyen pocketqube/IoT uydu constellation'ları (Hello Space örneği düşünülerek tasarlandı) için gerçek bir operasyonel darboğazı modeller: uydu sayısı arttıkça (3 → 10 → 30 → 80), sınırlı yer istasyonu sayısıyla geçiş pencereleri çakışmaya başlar ve bir istasyon aynı anda yalnızca bir uydudan veri indirebilir. Yeni modül, ASTM'in mevcut SGP4 propagasyon altyapısını (Faz 1-5'te oluşturulan) yer istasyonu görüş geometrisine (AOS/LOS/elevasyon) genişletir ve bunun üzerine bir çizelgeleme + kapasite planlama katmanı ekler.
+
+## Yeni Özellikler
+
+### Yer İstasyonu Görüş Geometrisi (AOS/LOS)
+- **`processing/ground_station.py`:** `processing/propagator.py`'nin ürettiği TEME konum vektörlerinden, bir yer istasyonuna göre topocentric elevasyon açısını hesaplayan `elevation_deg` fonksiyonu eklendi (TEME → ITRS → AltAz dönüşüm zinciri, `coord_utils.teme_pos_to_latlon`'un TEME→ITRS adımıyla aynı astropy altyapısını kullanır — `coord_utils.py` değiştirilmedi, sadece aynı yaklaşım yeni bir dosyada uygulandı).
+- **AOS/LOS Tespiti:** `find_pass_windows`, bir zaman aralığını adımlı tarayıp elevasyonun `min_elevation_deg` eşiğini yukarı/aşağı kestiği anları (ardışık örnekler arası lineer interpolasyonla saniye hassasiyetinde) AOS/LOS olarak işaretler; `compute_all_pass_windows` bunu çoklu uydu × çoklu istasyon için toplu çalıştırır.
+- Hem `propagate_func` hem `elevation_func` dependency injection ile alınır (`conjunction.py`'deki `propagate_func` injection deseniyle aynı), bu sayede gerçek SGP4/astropy çağrısı yapmadan deterministik test edilebilir.
+
+### Çakışma Tespiti
+- **`processing/schedule_conflict.py`:** Aynı istasyonda zaman içinde örtüşen geçiş pencerelerini (`detect_conflicts`) ve çakışmaya taraf olan geçişlerin oranını (`conflict_ratio`) hesaplar.
+
+### Çizelgeleme — İstasyon-Bağımlı EFT Greedy
+- **`planner/ground_scheduler.py`:** Her `PassWindow` zaten kendi `station_name`'ine özgü bir geometridir (AOS/LOS o istasyonun lat/lon'una göre hesaplanmıştır); bir pencere fiziksel olarak başka bir istasyona aktarılamaz. Bu nedenle çizelgeleme istasyon başına bağımsız bir tek-kaynak (single-resource) problemi olarak modellendi: her istasyonun kendi kuyruğu, geçişleri LOS zamanına göre (Earliest-Finish-Time) sıralayan greedy algoritmle çözülür — tek kaynak için bu, çakışmasız maksimum geçiş sayısını seçmede ispatlanmış optimaldir (klasik interval scheduling teoremi), ILP/OR-Tools gibi ağır bağımlılıklar gerekmez.
+  - **Değerlendirilen ama elenen alternatif:** İlk tasarımda istasyonlar "en az meşgul olana ata" mantığıyla birbirinin yerine geçebilen ortak bir kapasite havuzu olarak modellenmişti; bu, bir pencerenin (örn. Ankara için hesaplanmış AOS/LOS) fiilen görüş hattı olmayan başka bir istasyona (örn. Svalbard) "ödünç verilmesi" anlamına geldiği için fiziksel olarak tutarsızdı ve düzeltildi.
+  - İstasyon sayısının kapasiteyi artırması, çakışmaların istasyonlar arasında dağıtılmasından değil, her yeni istasyonun (farklı coğrafi konumda, dolayısıyla farklı/örtüşen uydu kümesini gören) kendi kuyruğunun küçülmesinden gelir.
+
+### Kapasite Planlama Senaryo Motoru
+- **`service/capacity_planning_service.py`:** Hello Space'in büyüme hedefine paralel uydu sayıları (3/10/30/80) × istasyon sayıları (1/2/3) ızgarasını tarayıp her kombinasyon için kapasite kaybı (kaçırılan geçiş oranı) hesaplar.
+- **Geriye-doğru hesaplama:** Her senaryo için, mevcut kapasite kaybını %50 azaltmak için CANDIDATE_GROUND_STATIONS havuzundan kaç EK istasyon eklenmesi gerektiğini artan istasyon sayısıyla arayarak bulur (`additional_stations_for_target`) — "80 uyduya giderken kaç istasyon yeterli olur" sorusuna doğrudan cevap üretir.
+- Gerçek TLE verileri `tle_service.get_satellites_by_orbit_profile()` üzerinden okunur — DB'deki tüm katalog (stations/visual/debris/resource) Hello Space'in hedef yörünge profiline (525km irtifa, 97.5° inklinasyon — SSO) yakınlığa göre filtrelenip sıralanır, alfabetik/rastgele seçim yapılmaz. İstenen sayıdan az uydu bu yörünge bandında mevcutsa mevcut olanlarla devam edilir (`actual_satellites_used` ile raporlanır).
+
+### Veritabanı Şeması
+- **Yeni tablolar:** `ground_stations` (kullanıcı tanımlı gerçek istasyonlar), `pass_windows` (hesaplanan AOS/LOS pencereleri), `scheduling_results` (senaryo koşusu çizelgeleme çıktısı, `assigned` bayrağıyla atanan/kaçırılan ayrımı).
+
+### API ve Dashboard
+- **Yeni router:** `backend/api/router_ground_scheduling.py` — `/ground-scheduling/stations` (CRUD), `/ground-scheduling/candidate-stations`, `/ground-scheduling/scenario` (tekil), `/ground-scheduling/scenarios` (ızgara).
+- **Yeni dashboard paneli:** "Yer İstasyonu Planlama" — Leaflet harita üzerinde aday istasyonlar + canlı uydu konumları, senaryo parametre formu, kapasite kaybı/ek istasyon ihtiyacı stat kartları, Chart.js ile senaryo karşılaştırma grafiği ve tablosu.
+
+## Bulgu: Kutup İstasyonu Darboğazı
+
+Senaryo motoru, Hello Space'in gerçek (planlanan) yörünge profiline — 525km irtifa, 97.5° inklinasyon, güneş-senkron (SSO) — yakın **gerçek** Celestrak nesneleriyle (bkz. [Veri ve Varsayımlar Şeffaflığı](#veri-ve-varsayımlar-şeffaflığı)) çalıştırıldığında, beklenmedik ama fiziksel olarak tutarlı bir sonuç ortaya çıktı:
+
+| Uydu Sayısı | İstasyon Sayısı | Toplam Geçiş | Kaçırılan Geçiş | Kapasite Kaybı |
+|:---:|:---:|:---:|:---:|:---:|
+| 25 | 1 (Ankara) | 82 | 31 | %37.8 |
+| 25 | 2 (+Svalbard) | 352 | 186 | **%52.8** |
+| 25 | 3 (+Punta Arenas) | 456 | 228 | %50.0 |
+| 80 | 1 (Ankara) | 271 | 148 | %54.6 |
+| 80 | 2 (+Svalbard) | 1139 | 835 | **%73.3** |
+| 80 | 3 (+Punta Arenas) | 1491 | 1043 | %70.0 |
+
+**Neden:** SSO/polar yörüngeli (97.5° inklinasyon) bir uydu, kutup bölgesine yakın bir istasyondan (örn. Svalbard, 78°N) **her turda** (günde ~10-15 kez) görülür, çünkü yörüngenin yer izi her devirde kutuplara yaklaşır. Orta enlemdeki bir istasyon (örn. Ankara, 40°N) ise aynı uyduyu günde sadece birkaç kez görür. Bu yüzden 2. istasyon olarak Svalbard eklendiğinde toplam geçiş talebi orantısızca büyüyor (25 uydu için 82 → 352), ama bu yeni istasyon hâlâ aynı anda yalnızca bir uyduyla ilgilenebilen tek-kaynak bir kuyruk — kendi içinde çok daha sık çakışma yaşıyor ve sistem genelinde kapasite kaybı **artıyor** (%37.8 → %52.8), azalmıyor. 3. istasyon olarak başka bir kutup-bölgesi noktası (Punta Arenas, güney yarım küre) eklenince bu yük ikiye bölünüyor ve kayıp kısmen geriliyor (%52.8 → %50.0) ama yine de tek-istasyon durumunun üzerinde kalıyor.
+
+**Çıkarım:** İstasyon eklemek kapasiteyi otomatik olarak artırmıyor. Yeni istasyon da yüksek-görünürlük (kutup/yarı-kutup) bölgesindeyse, kapasiteden çok **talebi** büyütüp mevcut darboğazı genişletebiliyor. `CapacityPlanningService._stations_needed_for_target` ile yapılan geriye-doğru arama, 10 ek istasyona kadar `CANDIDATE_GROUND_STATIONS` havuzunu sırayla denese de hiçbir senaryoda %50 kayıp-azaltma hedefine ulaşamadı (`additional_stations_for_target=None`) — bu da rastgele coğrafi dağıtımın SSO darboğazını çözmediğini, kutup-bölgesi yükünü hedefleyen bir stratejinin (örn. aynı bölgede çoklu anten/yüksek-verim istasyon, ya da istasyon sayısını coğrafi çeşitlilik değil kutup-bölgesi yoğunluğuna göre planlamak) gerektiğini gösteriyor.
+
+**Gerçek dünya emsali:** SSO ağırlıklı yer gözlem constellation'ı işleten operatörler (örn. Planet Labs, ICEYE gibi yoğun SSO filolarına sahip şirketler) bu nedenle tipik olarak kutup/yarı-kutup bölgesinde birden fazla yer istasyonuna veya yüksek-verim (çoklu anten / X-band) yer segmentine yatırım yapar — kutup bölgesi SSO geçiş yoğunluğunun doğal bir sonucu olarak endüstride bilinen bir kapasite planlama deseni. Bu genel bir endüstri gözlemidir; spesifik bir akademik kaynak/sayısal referans verilmemiştir, abartılı bir iddia olarak okunmamalıdır.
+
+## Veri ve Varsayımlar Şeffaflığı
+
+Bu modülün şirket sunumuna gidecek olması nedeniyle, kullanılan her parametrenin "gerçek veri" mi yoksa "mühendislik varsayımı" mı olduğu açıkça etiketlenmiştir:
+
+| Parametre | Değer/Kaynak | Etiket | Not |
+|---|---|---|---|
+| TLE verisi (line1/line2) | Celestrak `stations`/`visual`/`debris`/`resource` grupları, canlı HTTP fetch (`ingest/tle_fetcher.py`) | **Gerçek veri** | Sentetik/rastgele üretim yok; ham TLE metni DB'de saklanıyor |
+| Senaryolardaki uydu seçimi (25/80 vb.) | DB'deki gerçek TLE kataloğundan, Hello Space'in 525km/97.5° SSO profiline inklinasyon+irtifa bandıyla (90-100°, 400-700km) filtrelenip en yakın N nesne (`tle_service.get_satellites_by_orbit_profile`) | **Gerçek veri, profile-eşleştirmeli seçim** | Bu nesneler Hello Space'in kendi (henüz fırlatılmamış) constellation'ı DEĞİL — gerçek yörünge fiziğine sahip, benzer geçiş istatistiği üreten gerçek-dünya SSO yer-gözlem nesneleri (80'lik sette fiilen yer alanlardan örnekler: SkySat, SAOCOM, Cartosat, COSMO-SkyMed ailesi) |
+| İstasyon koordinatları (`CANDIDATE_GROUND_STATIONS`) | Gerçek şehir/bölge lat-lon değerleri (Ankara, Svalbard, Punta Arenas, vb.) | **Gerçek koordinat, varsayımsal aday havuzu** | Bu noktalarda fiilen kurulu bir Hello Space/üçüncü-parti yer istasyonu olduğu iddia edilmiyor; küresel kapsama çeşitliliği için seçilmiş temsili adaylar |
+| `DEFAULT_MIN_ELEVATION_DEG = 10°` | Tüm istasyonlarda sabit eşik | **Mühendislik varsayımı (endüstri tipik aralığı)** | 5-15° aralığı SATCOM link bütçesi pratiğinde yaygın (düşük elevasyonda atmosferik atenüasyon/multipath artar, bkz. ITU-R P.618 atmosferik yayılım önerileri); Hello Space'in gerçek link bütçesiyle kalibre edilmemiştir |
+| `DEFAULT_STATION_ALT_KM = 0.0` | Tüm istasyonlar deniz seviyesi kabul ediliyor | **Mühendislik basitleştirmesi** | Gerçek istasyon irtifaları elevasyon hesabını ~0.01-0.1° düzeyinde değiştirir, ihmal edilebilir düzeyde ama gerçek değer değil |
+| `DEFAULT_PASS_SCAN_STEP_SECONDS = 60` | AOS/LOS tarama adımı | **Mühendislik varsayımı (performans/hassasiyet dengesi)** | Lineer interpolasyonla saniye hassasiyetine getiriliyor; geçiş pencereleri dakikalar sürdüğü için yeterli |
+| Senaryo süresi (24 saat) | Sabit pencere | **Mühendislik varsayımı** | Günlük operasyon döngüsünü temsil eden makul ama keyfi seçim |
+| `SCENARIO_SATELLITE_COUNTS = [3, 10, 30, 80]` | Hello Space büyüme eğrisi varsayımı | **Mühendislik/iş varsayımı** | Şirketin doğrulanmış gerçek yol haritası sayıları değilse varsayımsaldır |
+
+## Test Altyapısı
+- **`tests/test_ground_scheduling.py`:** 14 deterministik test — `elevation_deg` için bilinen geometrik noktalarla (tepe noktası, antipod) doğrulama; `find_pass_windows` için sahte `propagate_func`/`elevation_func` enjeksiyonuyla AOS/LOS + lineer interpolasyon doğruluğu; `detect_conflicts`/`conflict_ratio` için bilinen çakışma senaryoları; `schedule_passes` için EFT-greedy doğruluğu ve istasyonlar arası izolasyonun (bir pencerenin asla yanlış istasyona atanmadığının) doğrulanması.
+
+## Değiştirilen Dosyalar
+`processing/ground_station.py` (yeni), `processing/schedule_conflict.py` (yeni), `planner/ground_scheduler.py` (yeni), `service/capacity_planning_service.py` (yeni), `backend/api/router_ground_scheduling.py` (yeni), `ground_scheduling_config.py` (yeni), `backend/models/db.py`, `main.py`, `dashboard/index.html`, `dashboard/assets/js/main.js`, `tests/test_ground_scheduling.py` (yeni), `processing/propagator.py` (`orbit_params_from_tle` eklendi), `service/tle_service.py` (`get_satellites_by_orbit_profile` eklendi), `ingest/tle_fetcher.py` (`resource` grubu eklendi)
+
+---
+
 # Release Notes - v1.3.0 (Manevra Tespiti, SSA Model İyileştirmeleri & Test Altyapısı)
 
 ## Genel Bakış

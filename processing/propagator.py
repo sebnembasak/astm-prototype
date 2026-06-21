@@ -1,7 +1,11 @@
+import math
 from sgp4.api import Satrec
 from sgp4.api import jday
 from datetime import datetime, timezone
 from typing import List, Tuple
+
+EARTH_MU_KM3_S2 = 398600.4418  # Standart yerçekimi parametresi (μ = GM)
+EARTH_RADIUS_KM = 6378.137  # WGS84 ekvatoral yarıçap
 
 
 # TLE Dizilerini SGP4 Uydusuna Dönüştürme
@@ -12,6 +16,25 @@ def tle_to_satrec(line1: str, line2: str) -> Satrec:
     Bu nesne propagasyon için gerekli tüm yörünge parametrelerini içerir.
     """
     return Satrec.twoline2rv(line1, line2)
+
+
+def orbit_params_from_tle(line1: str, line2: str) -> Tuple[float, float]:
+    """
+    TLE'den, propagasyon yapmadan, ortalama inklinasyon (derece) ve ortalama
+    irtifa (km) çıkarır. İrtifa, TLE'de doğrudan yer almaz; ortalama hareketten
+    (mean motion, no_kozai) Kepler'in 3. yasasıyla yarı-büyük eksen (a) türetilip
+    Dünya yarıçapı çıkarılarak (a ~ dairesel yörünge yarıçapı kabulüyle)
+    bulunur. SSO/LEO gibi düşük eksantriklikli yörüngeler için bu yaklaşım
+    yeterli hassasiyettedir; eksantrikliği yüksek (örn. Molniya) yörüngeler
+    için "ortalama irtifa" fiziksel olarak az anlamlıdır ama bu fonksiyon
+    sadece kabaca bant filtrelemesi (örn. LEO SSO seçimi) için kullanılır.
+    """
+    sat = Satrec.twoline2rv(line1, line2)
+    inclination_deg = math.degrees(sat.inclo)
+    mean_motion_rad_s = sat.no_kozai / 60.0  # no_kozai birimi rad/dakika
+    semi_major_axis_km = (EARTH_MU_KM3_S2 / (mean_motion_rad_s ** 2)) ** (1.0 / 3.0)
+    altitude_km = semi_major_axis_km - EARTH_RADIUS_KM
+    return inclination_deg, altitude_km
 
 
 # UTC Tarih Saatini Julian Tarihine Dönüştür

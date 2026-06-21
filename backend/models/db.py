@@ -135,6 +135,58 @@ def init_db():
         )
     """)
 
+    # Ground Station Scheduling & Capacity Planning (Faz 6)
+    curr.execute("""
+        CREATE TABLE IF NOT EXISTS ground_stations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            lat REAL NOT NULL,
+            lon REAL NOT NULL,
+            alt_km REAL DEFAULT 0.0,
+            min_elevation_deg REAL DEFAULT 10.0,
+            created_at TEXT
+        )
+    """)
+
+    # Bir uydunun bir istasyon üzerinden hesaplanan geçiş penceresi (AOS/LOS).
+    curr.execute("""
+        CREATE TABLE IF NOT EXISTS pass_windows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sat_id INTEGER,
+            station_id INTEGER,
+            aos TEXT,
+            los TEXT,
+            max_elevation_deg REAL,
+            duration_s REAL,
+            computed_at TEXT,
+            FOREIGN KEY (sat_id) REFERENCES raw_tles(id),
+            FOREIGN KEY (station_id) REFERENCES ground_stations(id)
+        )
+    """)
+    curr.execute("""
+        CREATE INDEX IF NOT EXISTS idx_pass_windows_station_aos
+        ON pass_windows(station_id, aos)
+    """)
+
+    # Bir senaryo koşusunun çizelgeleme çıktısı: hangi geçiş hangi istasyona
+    # atandı (assigned=1) veya çakışmadan kaybedildi (assigned=0).
+    curr.execute("""
+        CREATE TABLE IF NOT EXISTS scheduling_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scenario_label TEXT,
+            sat_id INTEGER,
+            station_name TEXT,
+            aos TEXT,
+            los TEXT,
+            assigned INTEGER,
+            created_at TEXT
+        )
+    """)
+    curr.execute("""
+        CREATE INDEX IF NOT EXISTS idx_scheduling_results_scenario
+        ON scheduling_results(scenario_label)
+    """)
+
     conn.commit()
     conn.close()
 
