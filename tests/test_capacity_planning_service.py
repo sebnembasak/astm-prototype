@@ -53,6 +53,26 @@ def fake_compute_all_pass_windows(satellites, stations, start_utc, end_utc, prop
     ]
 
 
+# base_station_count ile havuz kısaltmasını (CANDIDATE_GROUND_STATIONS[base_station_count:])
+# test etmek için: en güçlü aday kasıtlı olarak listenin İLK sırasında — "zaten kullanılmış"
+# bir istasyon gibi davranıp havuzdan çıkarılması gerekiyor.
+FAKE_STATION_POOL_BEST_FIRST = [
+    {"name": "BestButAlreadyUsed", "lat_deg": 0.0, "lon_deg": 0.0},
+    {"name": "SecondBest", "lat_deg": 10.0, "lon_deg": 10.0},
+    {"name": "Worst", "lat_deg": 20.0, "lon_deg": 20.0},
+]
+WINDOW_COUNTS_BEST_FIRST = {"BestButAlreadyUsed": 10, "SecondBest": 3, "Worst": 0}
+
+
+def fake_compute_all_pass_windows_best_first(satellites, stations, start_utc, end_utc, propagate_func):
+    station = stations[0]
+    count = WINDOW_COUNTS_BEST_FIRST[station.name]
+    return [
+        make_window(sat_id=200 + i, station_name=station.name, aos_offset_s=i * 1000, los_offset_s=i * 1000 + 100)
+        for i in range(count)
+    ]
+
+
 class TestStationsNeededForTargetGreedy:
 
     def setup_method(self):
@@ -95,3 +115,37 @@ class TestStationsNeededForTargetGreedy:
             base_loss_ratio=0.0, start_utc=EPOCH, end_utc=EPOCH + timedelta(hours=24),
         )
         assert (extra, path) == (0, [])
+
+    @patch("service.capacity_planning_service.CANDIDATE_GROUND_STATIONS", FAKE_STATION_POOL_BEST_FIRST)
+    @patch("service.capacity_planning_service.compute_all_pass_windows",
+           side_effect=fake_compute_all_pass_windows_best_first)
+    def test_base_station_count_excludes_already_used_candidates(self, mock_compute):
+        # remaining_pool = CANDIDATE_GROUND_STATIONS[base_station_count:] mantığını doğrular.
+        # FAKE_STATION_POOL_BEST_FIRST'te en güçlü aday ("BestButAlreadyUsed") listenin
+        # İLK sırasında — base_station_count=1 ile "zaten kullanılmış" (örn. Ankara
+        # konumundaki gerçek 1. istasyon) sayılıp havuzdan ÇIKARILMALI. Eğer dilimleme
+        # bozulsaydı (örn. tüm havuz kullanılsaydı), greedy bu en güçlü adayı seçer ve
+        # path[0] "BestButAlreadyUsed" olurdu — bu test tam olarak bunu yakalar.
+        extra, path = self.svc._stations_needed_for_target(
+            satellites=[], base_station_count=1, base_windows=self.base_windows,
+            base_loss_ratio=0.5, start_utc=EPOCH, end_utc=EPOCH + timedelta(hours=24),
+            reduction_pct=50.0,
+        )
+        assert "BestButAlreadyUsed" not in path
+        assert path == ["SecondBest"]
+        assert extra == 1
+
+    @patch("service.capacity_planning_service.CANDIDATE_GROUND_STATIONS", FAKE_STATION_POOL_BEST_FIRST)
+    @patch("service.capacity_planning_service.compute_all_pass_windows",
+           side_effect=fake_compute_all_pass_windows_best_first)
+    def test_base_station_count_two_excludes_two_already_used_candidates(self, mock_compute):
+        # base_station_count=2 -> havuzda sadece ["Worst"] kalmalı (ilk 2 aday hariç).
+        extra, path = self.svc._stations_needed_for_target(
+            satellites=[], base_station_count=2, base_windows=self.base_windows,
+            base_loss_ratio=0.5, start_utc=EPOCH, end_utc=EPOCH + timedelta(hours=24),
+            reduction_pct=99.0,  # bu havuzla (sadece Worst, 0 pencere) asla ulaşılamaz
+        )
+        assert extra is None
+        assert path == ["Worst"]
+        assert "BestButAlreadyUsed" not in path
+        assert "SecondBest" not in path

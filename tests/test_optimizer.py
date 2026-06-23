@@ -143,3 +143,23 @@ class TestFindMinimalDv:
         )
         assert proposal.success is True
         assert proposal.predicted_miss_km >= 1.0 - 0.001
+
+    def test_already_safe_target_does_not_leak_raw_scipy_message(self):
+        # target_miss_km, manevrasız (dv=0) zaten sağlanıyorsa: maliyet fonksiyonu
+        # np.linalg.norm(dv) tam dv=0'da türevsiz (kink) olduğundan, L-BFGS-B bu
+        # noktadan ilerleyemeyip scipy'nin "ABNORMAL: " gibi ham/anlaşılmaz dahili
+        # durum mesajıyla başarısız (res.success=False) dönebiliyor — ama is_success
+        # ölçütümüze göre sonuç YİNE doğru (hedef zaten karşılanmış, dv=0 optimal).
+        # Bu testte mesajın scipy'nin ham çıktısını değil, anlamlı bir Türkçe
+        # açıklamayı içerdiğini doğruluyoruz.
+        our = make_satrec([R_CIRC, 0.0, 0.0], [0.0, V_CIRC, 0.0])
+        target = make_satrec([R_CIRC, 0.0, 0.5], [0.0, V_CIRC, 0.0])
+        propagate = make_linear_propagator()
+        proposal = find_minimal_dv(
+            target, our, EPOCH, EPOCH + timedelta(seconds=300), propagate,
+            target_miss_km=0.1, dv_bound_km_s=0.002  # başlangıç mesafesi (0.5km) zaten yeterli
+        )
+        assert proposal.success is True
+        assert proposal.dv_mag_km_s == pytest.approx(0.0, abs=1e-9)
+        assert "ABNORMAL" not in proposal.message
+        assert proposal.message == "Manevra gerekli değil: mevcut mesafe hedefi zaten karşılıyor."

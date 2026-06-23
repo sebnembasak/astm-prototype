@@ -464,3 +464,37 @@
             background: linear-gradient(180deg, rgba(20, 30, 50, 0.4) 0%, rgba(5, 5, 16, 0.8) 100%);
             margin-top: auto;
         }
+/* "Bu sayfa ne anlatıyor?" açıklayıcı kutuları — tüm panellerde tutarlı */
+.explainer-toggle {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(13, 202, 240, 0.06);
+    border: 1px solid rgba(13, 202, 240, 0.22);
+    color: #6edff6;
+    border-radius: 10px;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+.explainer-toggle:hover {
+    background: rgba(13, 202, 240, 0.12);
+    border-color: rgba(13, 202, 240, 0.45);
+    color: #9beaf9;
+}
+.explainer-toggle .chevron {
+    transition: transform 0.25s ease;
+    opacity: 0.7;
+}
+.explainer-toggle[aria-expanded="true"] .chevron {
+    transform: rotate(180deg);
+}
+.explainer-body {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem 0.9rem;
+    margin-top: 0.5rem;
+}

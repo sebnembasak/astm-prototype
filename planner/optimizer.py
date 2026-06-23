@@ -162,15 +162,33 @@ def find_minimal_dv(
 
     # Bulunan mesafe hedefe (tolerans dahilinde) ulaştı mı?
     is_success = miss_opt >= (target_miss_km - 0.001)
+    dv_mag_km_s = float(np.linalg.norm(dv_opt))
+
+    # Mesaj seçimi is_success'e (gerçek karar kriterimiz) göre yapılır, scipy'nin
+    # kendi res.success/res.message'ına DEĞİL. Neden: maliyet fonksiyonu
+    # np.linalg.norm(dv) içerir, bu fonksiyon dv=0 noktasında türevsizdir
+    # (köşeli/kink bir nokta). Hedef mesafe manevrasız (dv=0) zaten
+    # sağlanıyorsa, optimum tam bu türevsiz noktada olur; L-BFGS-B'nin line
+    # search'ü buradan ilerleyemeyip scipy'de "ABNORMAL: " gibi anlaşılmaz bir
+    # dahili durum mesajıyla başarısız (res.success=False) dönebilir — ama
+    # is_success ölçütümüze göre sonuç YİNE doğrudur (hedef zaten karşılanmış).
+    # Bu durumu scipy'nin ham mesajını kullanıcıya sızdırmadan ayırt ediyoruz.
+    if is_success:
+        if dv_mag_km_s < 1e-9:
+            message = "Manevra gerekli değil: mevcut mesafe hedefi zaten karşılıyor."
+        else:
+            message = "Optimum ateşleme bulundu."
+    else:
+        message = f"Hedefe ulaşılamadı (optimizer durumu: {res.message})"
 
     return ManeuverProposal(
         dv_km_s=dv_opt,
-        dv_mag_km_s=float(np.linalg.norm(dv_opt)),
-        dv_mag_m_s=float(np.linalg.norm(dv_opt) * 1000.0),
+        dv_mag_km_s=dv_mag_km_s,
+        dv_mag_m_s=dv_mag_km_s * 1000.0,
         burn_time=burn_time,
         predicted_tca=tca_time,
         predicted_miss_km=miss_opt,
         predicted_rel_vel_km_s=relv_opt,
         success=is_success,
-        message="Optimization finished" if res.success else str(res.message)
+        message=message
     )

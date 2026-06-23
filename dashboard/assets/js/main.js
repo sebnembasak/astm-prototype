@@ -17,6 +17,18 @@
         let realtimeInterval = null;
         let colorCounter = 0;
 
+        function updateMapLiveBadge() {
+            const badge = document.getElementById('map-live-badge');
+            if (!badge) return;
+            if (realtimeInterval && Object.keys(activeLayers).length > 0) {
+                badge.textContent = '● CANLI TAKİP';
+                badge.className = 'badge bg-danger bg-opacity-25 text-danger border border-danger';
+            } else {
+                badge.textContent = 'Henüz uydu eklenmedi';
+                badge.className = 'badge bg-secondary';
+            }
+        }
+
         function startRealtimeTracking() {
             if (realtimeInterval) return;
             realtimeInterval = setInterval(() => {
@@ -59,16 +71,24 @@
                     );
                 });
             }, 1000);
+            updateMapLiveBadge();
         }
 
         function stopRealtimeTracking() {
             if (realtimeInterval) { clearInterval(realtimeInterval); realtimeInterval = null; }
+            updateMapLiveBadge();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
             loadDashboardStats();
             loadSatellites();
+
+            // Açıklayıcı (i) ikonları için Bootstrap tooltip'leri etkinleştir.
+            // Bootstrap 5 tooltip'leri data-bs-toggle ile işaretlenmiş olsa da
+            // otomatik başlatmaz, her eleman için elle new bootstrap.Tooltip()
+            // çağrılması gerekir.
+            document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
         });
 
         function showSection(id, btn) {
@@ -361,29 +381,6 @@ const CLUSTER_COLORS = {
             }
         }
 
-        async function loadDashboardStats() {
-            try {
-                const res = await fetch(`${API_BASE}/tle/list?limit=1`);
-                document.getElementById('stat-sat-count').innerText = "12,540";
-
-                const resAlert = await fetch(`${API_BASE}/conjunctions/alerts?limit=5`);
-                const alerts = await resAlert.json();
-                document.getElementById('stat-alert-count').innerText = alerts.length;
-
-                const tbody = document.getElementById('dashboard-alerts-body');
-                tbody.innerHTML = "";
-                alerts.forEach(a => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td class="text-info">${a.sat1_name}</td>
-                            <td class="text-warning">${a.sat2_name}</td>
-                            <td class="font-mono small">${new Date(a.tca).toLocaleTimeString()}</td>
-                            <td><span class="badge bg-danger">${a.miss_distance_km.toFixed(2)} km</span></td>
-                        </tr>`;
-                });
-            } catch(e) {}
-        }
-
         async function loadSatellites() {
             try {
                 const res = await fetch(`${API_BASE}/tle/list?limit=50`);
@@ -585,19 +582,11 @@ async function calculateManeuver() {
 
         async function loadDashboardStats() {
             try {
-                const healthRes = await fetch(`${API_BASE}/health`);
-                if(healthRes.ok) {
-                    const healthData = await healthRes.json();
-                    document.getElementById('stat-sys-health').innerText = healthData.status || "OK";
-                    document.getElementById('stat-sys-msg').innerHTML = '<i class="fas fa-check-circle"></i> Sistemler Aktif';
-                    document.getElementById('stat-sys-health').classList.replace('text-danger', 'text-info');
-                } else {
-                     throw new Error("API Error");
-                }
+                const maneuverRes = await fetch(`${API_BASE}/maneuver-detection/events?limit=10000`);
+                const maneuverEvents = await maneuverRes.json();
+                document.getElementById('stat-maneuver-count').innerText = maneuverEvents.length.toLocaleString();
             } catch(e) {
-                document.getElementById('stat-sys-health').innerText = "ERR";
-                document.getElementById('stat-sys-health').className = "display-5 fw-bold text-danger my-2";
-                document.getElementById('stat-sys-msg').innerHTML = '<i class="fas fa-times-circle"></i> API Bağlantı Hatası';
+                document.getElementById('stat-maneuver-count').innerText = "--";
             }
 
             try {
@@ -733,17 +722,26 @@ async function calculateManeuver() {
     }
 
     // KÜME ANLAMLARI ---
-    const SSA_REGIMES = {
-        0: { name: "LEO - Alçak Yörünge (Trafik Yoğun)", color: "#00f3ff", icon: "fa-layer-group" },
-        1: { name: "MEO - Orta Yörünge (Navigasyon/GPS)", color: "#ffae00", icon: "fa-satellite-dish" },
-        2: { name: "GEO - Yer Sabit (Haberleşme Kuşağı)", color: "#bc13fe", icon: "fa-broadcast-tower" },
-        3: { name: "HEO - Yüksek Eliptik (Askeri/Stratejik)", color: "#0aff60", icon: "fa-shield-alt" },
-        4: { name: "VLEO - Çok Alçak (Atmosfer Sınırı)", color: "#ff0055", icon: "fa-meteor" }
-    };
+    // cluster_id -> {name, color, icon}: GMM her eğitimde küme ID'lerini farklı
+    // sırayla atayabildiği için bu eşleme backend'de küme merkezlerinden dinamik
+    // hesaplanır (bkz. ssa_service._build_regime_map) ve /ssa/regimes'ten alınır.
+    let SSA_REGIMES = {};
+
+    async function fetchSSARegimes() {
+        try {
+            const res = await fetch(`${API_BASE}/ssa/regimes`);
+            const data = await res.json();
+            // JSON anahtarları string gelir; cluster_id sayısal karşılaştırmalarla
+            // (örn. item.cluster_id) tutarlı kalması için sayıya çeviriyoruz.
+            SSA_REGIMES = {};
+            Object.entries(data).forEach(([cid, regime]) => { SSA_REGIMES[Number(cid)] = regime; });
+        } catch (e) { console.error("Rejim Eşlemesi Hatası:", e); }
+    }
 
     async function fetchAndRenderSSAResults() {
         const tbody = document.getElementById('ssa-results-body');
         try {
+            if (Object.keys(SSA_REGIMES).length === 0) await fetchSSARegimes();
             const res = await fetch(`${API_BASE}/ssa/results`);
             const data = await res.json();
             tbody.innerHTML = "";
@@ -770,7 +768,6 @@ async function calculateManeuver() {
                             <div class="small" style="color: ${regime.color}">
                                 <i class="fas ${regime.icon} me-1"></i> ${regime.name}
                             </div>
-                            <div class="font-mono opacity-50" style="font-size: 0.6rem;">Cluster #${item.cluster_id}</div>
                         </td>
                         <td><span class="badge border border-info text-info">${item.predicted_category}</span></td>
                         <td><span class="badge ${riskClass}" style="font-size:0.65rem">${item.decay_risk}</span></td>
@@ -791,6 +788,7 @@ async function calculateManeuver() {
         const canvas = document.getElementById('regimeHeatmapChart');
         if (!canvas) return;
         try {
+            if (Object.keys(SSA_REGIMES).length === 0) await fetchSSARegimes();
             const res = await fetch(`${API_BASE}/ssa/heatmap`);
             const points = await res.json();
 
@@ -801,7 +799,7 @@ async function calculateManeuver() {
                 const key = (p.cluster_id === null || p.cluster_id === undefined) ? 'unknown' : p.cluster_id;
                 if (!datasets[key]) {
                     datasets[key] = {
-                        label: regime ? regime.name.split(' - ')[0] : 'Sınıflandırılmamış',
+                        label: regime ? regime.name : 'Sınıflandırılmamış',
                         data: [],
                         backgroundColor: regime ? regime.color : 'rgba(255,255,255,0.25)',
                         pointRadius: 3
@@ -825,7 +823,15 @@ async function calculateManeuver() {
                             grid: { color: 'rgba(255,255,255,0.05)' }
                         },
                         y: {
-                            title: { display: true, text: 'İrtifa (km)', color: 'rgba(255,255,255,0.6)' },
+                            // Gerçek uydu popülasyonu LEO'da (200-2000km) yoğunlaşır; GEO/MEO
+                            // noktaları 30.000+ km'de tekil kalır. Doğrusal eksende bu, LEO
+                            // noktalarının tamamının görsel olarak Y=0'a yapışmasına yol açar
+                            // (hesaplama hatası değil — gerçek dağılımın doğrusal ölçekte
+                            // görselleştirme sorunu). Logaritmik eksen tüm rejimleri ayırt
+                            // edilebilir kılar.
+                            type: 'logarithmic',
+                            min: 150,
+                            title: { display: true, text: 'İrtifa (km, log ölçek)', color: 'rgba(255,255,255,0.6)' },
                             ticks: { color: 'rgba(255,255,255,0.5)' },
                             grid: { color: 'rgba(255,255,255,0.05)' }
                         }
@@ -1022,9 +1028,11 @@ async function calculateManeuver() {
         document.getElementById('gs-loss-pct').innerText = `%${result.capacity_loss_pct.toFixed(1)}`;
 
         const unreachable = (result.additional_stations_for_target === null || result.additional_stations_for_target === undefined);
-        document.getElementById('gs-extra-stations').innerText = unreachable
-            ? 'Havuz Yetersiz'
-            : `+${result.additional_stations_for_target} İstasyon`;
+        const extraEl = document.getElementById('gs-extra-stations');
+        extraEl.innerText = unreachable ? 'Havuz Yetersiz' : `+${result.additional_stations_for_target} İstasyon`;
+        // Renk semantiği sonuca göre: hedefe ulaşılabiliyorsa yeşil (başarı), ulaşılamıyorsa
+        // sarı (uyarı) — "Havuz Yetersiz" olumsuz bir bulgu olduğu için yeşil göstermek yanıltıcıydı.
+        extraEl.className = `h3 fw-bold my-1 ${unreachable ? 'text-warning' : 'text-success'}`;
 
         const noteEl = document.getElementById('gs-extra-stations-note');
         const path = result.additional_stations_path;
@@ -1075,13 +1083,28 @@ async function calculateManeuver() {
     function renderGroundScenarioTable(results) {
         const body = document.getElementById('gs-scenario-table-body');
         body.innerHTML = "";
-        results.forEach(r => {
+        results.forEach((r, i) => {
             const unreachable = (r.additional_stations_for_target === null || r.additional_stations_for_target === undefined);
             const extra = unreachable ? '<span class="text-secondary">Havuz Yetersiz</span>' : `+${r.additional_stations_for_target}`;
             const path = r.additional_stations_path;
-            const pathTitle = (path && path.length)
-                ? (unreachable ? `Denenen sıra (en iyiden en kötüye): ${path.join(' → ')}` : `Seçilen sıra: ${path.join(' → ')}`)
-                : '';
+
+            let pathCell;
+            if (!path || path.length === 0) {
+                pathCell = '<span class="opacity-50">—</span>';
+            } else {
+                // Greedy'nin gerçekten en iyiyi seçip seçmediğini görünür kılmak için
+                // istasyon adlarını sıra numarasıyla birlikte, kutup-bölgesi istasyonları
+                // (Svalbard/Punta Arenas/Reykjavik/Fairbanks) işaretlenmiş şekilde listeliyoruz.
+                const POLAR_STATIONS = ['Svalbard', 'Punta Arenas', 'Reykjavik', 'Fairbanks'];
+                const steps = path.map((name, idx) => {
+                    const isPolar = POLAR_STATIONS.includes(name);
+                    return `<span class="badge ${isPolar ? 'bg-warning text-dark' : 'bg-secondary'} bg-opacity-75 me-1 mb-1" `
+                         + `title="${isPolar ? 'Kutup-bölgesi istasyonu — SSO uydularını her turda görür' : 'Orta/düşük enlem istasyonu'}" `
+                         + `data-bs-toggle="tooltip">${idx + 1}. ${name}</span>`;
+                });
+                pathCell = `<div style="max-width: 360px; line-height: 1.9;">${steps.join('')}</div>`;
+            }
+
             body.innerHTML += `
                 <tr>
                     <td>${r.num_satellites}</td>
@@ -1089,9 +1112,13 @@ async function calculateManeuver() {
                     <td>${r.total_passes}</td>
                     <td class="text-danger">${r.missed_passes}</td>
                     <td class="text-warning">%${r.capacity_loss_pct.toFixed(1)}</td>
-                    <td title="${pathTitle}" style="${pathTitle ? 'cursor: help; border-bottom: 1px dotted;' : ''}">${extra}</td>
+                    <td>${extra}</td>
+                    <td>${pathCell}</td>
                 </tr>`;
         });
+        // Yeni eklenen rozet tooltip'lerini etkinleştir (tablo dinamik olarak
+        // yeniden oluşturulduğu için DOMContentLoaded'daki tek seferlik init bunları kapsamıyor).
+        body.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
     }
 
     function renderGroundScenarioChart(results) {

@@ -48,9 +48,9 @@ Bu senaryolardan çıkan en önemli sonuç: **istasyon eklemek kapasiteyi otomat
 | 25 | %37.8 kayıp | **%52.8 kayıp** | %50.0 kayıp |
 | 80 | %54.6 kayıp | **%73.3 kayıp** | %70.0 kayıp |
 
-**Daha güçlü bulgu:** Bu sıralı sonucun "yanlış istasyon seçimi" değil yapısal bir kısıt olduğunu doğrulamak için, sabit liste sırası yerine her adımda kalan tüm adayları deneyip kaybı en çok azaltanı seçen bir **greedy en-iyi-istasyon araması** çalıştırıldı. Greedy gerçekten doğru çalışıyor — kutup-bölgesi istasyonlarını (Punta Arenas, Reykjavik, Fairbanks) bilerek en sona bırakıyor (örn. 10 uydu/1 istasyon için seçilen sıra: Singapore→Perth→Toronto→Quito→Cape Town→Wellington→Tokyo→Punta Arenas→Reykjavik→Fairbanks). Buna rağmen **12 adaylık havuzun tamamı en iyi sırayla eklense bile** hiçbir senaryoda %50 kayıp-azaltma hedefine ulaşılamadı. Bu, basit coğrafi istasyon eklemenin (en iyi seçimle bile) yeterli olmayabileceğine işaret eden bir gözlem — yüksek-verim/çoklu-anten istasyon veya inter-satellite link gibi farklı bir yer-segmenti stratejisi gerekebilir, ama bu kesin bir çözüm reçetesi değil, bir hipotezdir.
+**Daha güçlü bulgu:** Bu sıralı sonucun "yanlış istasyon seçimi" değil yapısal bir kısıt olduğunu doğrulamak için, sabit liste sırası yerine her adımda kalan tüm adayları deneyip kaybı en çok azaltanı seçen bir **greedy en-iyi-istasyon araması** çalıştırıldı. Greedy doğru çalışıyor, kutup-bölgesi istasyonlarını (Punta Arenas, Reykjavik, Fairbanks) bilerek en sona bırakıyor (örn. 10 uydu/1 istasyon için seçilen sıra: Singapore→Perth→Toronto→Quito→Cape Town→Wellington→Tokyo→Punta Arenas→Reykjavik→Fairbanks). Buna rağmen **12 adaylık havuzun tamamı en iyi sırayla eklense bile** hiçbir senaryoda %50 kayıp-azaltma hedefine ulaşılamadı. Bu, basit coğrafi istasyon eklemenin (en iyi seçimle bile) yeterli olmayabileceğine işaret eden bir gözlem — yüksek-verim/çoklu-anten istasyon veya inter-satellite link gibi farklı bir yer-segmenti stratejisi gerekebilir, ama bu kesin bir çözüm değil, bir hipotezdir.
 
-Gerçek dünyada SSO ağırlıklı yer gözlem operatörleri (Planet Labs, ICEYE benzeri) bu nedenle kutup/yarı-kutup bölgesinde çoklu istasyon veya yüksek-verim yer segmentine yatırım yapar. Modelin varsayımları (10° elevasyon eşiği, istasyon başına tek-kanal, 12 aday lokasyon, 24 saatlik pencere) altında geçerli bir gözlemdir, kesin bir imkansızlık iddiası değildir. Detaylı analiz ve tam senaryo tablosu: [RELEASE.md](RELEASE.md#bulgu-kutup-istasyonu-darboğazı).
+Gerçek dünyada SSO ağırlıklı yer gözlem operatörleri bu nedenle kutup/yarı-kutup bölgesinde çoklu istasyon veya yüksek-verim yer segmentine yatırım yapar. Modelin varsayımları (10° elevasyon eşiği, istasyon başına tek-kanal, 12 aday lokasyon, 24 saatlik pencere) altında geçerli bir gözlemdir, kesin bir imkansızlık iddiası değildir. Detaylı analiz ve tam senaryo tablosu: [RELEASE.md](RELEASE.md#bulgu-kutup-istasyonu-darboğazı).
 
 #### Veri ve Varsayımlar Şeffaflığı
 | Parametre | Etiket |
@@ -74,7 +74,7 @@ Tam tablo ve gerekçeler: [RELEASE.md](RELEASE.md#veri-ve-varsayımlar-şeffafl�
 ### ASTM-Demo Örneği
 [![ASTM Demo Video](docs/Screenshots/dashboard.png)](https://vimeo.com/1145363572)
 > *Demoyu izlemek için yukarıdaki görsele tıklayınız.*
-Demo videosuna ve rapora ```docs``` dizininden ulaşabilirsiniz. Demo videosunu görüntülemek için ```view raw``` seçeneğine basıp videoyu indirebilirsiniz.
+Demo videosuna ve rapora ```docs``` dizininden ulaşabilirsiniz. Demo videosunu görüntülemek için ```view raw``` seçeneğine basıp videoyu indirebilirsiniz. **Video Aralık 2025 tarihli olduğundan güncel modülleri ve değişiklikleri içermemektedir**.
 
 ## Kurulum ve Çalıştırma
 
@@ -165,36 +165,98 @@ Proje, Servis Katmanı Mimarisi (Service Layer Architecture) kullanılarak tasar
 Projenin bilinen sınırlamaları ve kaynaksız varsayımları şeffafça belgelenmiştir: [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Diyagramlar
-### Sistem Mimarisi Diyagramı:
-![sistemMimarisi](docs/Diagrams/sistemMimarisi.png "Sistem Mimarisi Diyagramı")
+Tüm diyagramların düzenlenebilir `.drawio` kaynakları ve açık/koyu tema PNG çıktıları `docs/Diagrams/` altındadır.
 
-### Çarpışma Analizi Mimarisi Diyagramı:
-![carpismaAnalizi](docs/Diagrams/carpismaAnalizi.png "Çarpışma Analizi Diyagramı")
+### Sistem Mimarisi (v1.4.0):
+![Sistem Mimarisi](docs/Diagrams/sistem_mimarisi.png "Katmanlı Sistem Mimarisi")
 
-### Manevra Analizi Diyagramı:
-![manevraAnalizi](docs/Diagrams/manevraAnalizi.png "Manevra Analizi Diyagramı")
+### Çarpışma Tarama Pipeline (TLE'den Karara):
+![Çarpışma Tarama Pipeline](docs/Diagrams/conjunction_pipeline.png "Çarpışma Tarama Pipeline")
+
+### Kaçınma Manevrası Optimizasyonu (Sequence):
+![Manevra Optimizasyonu](docs/Diagrams/manevra_optimizasyonu.png "Manevra Optimizasyonu Sequence Diyagramı")
+
+### SSA / Yapay Zeka Pipeline:
+![SSA ML Pipeline](docs/Diagrams/ssa_ml_pipeline.png "SSA ML Pipeline")
+
+### Yer İstasyonu Kapasite Planlama — Modül Mimarisi & Akış:
+![Ground Station Scheduling](docs/Diagrams/ground_station_scheduling.png "Ground Station Scheduling")
 
 Sistem hakkında detaylı bilgiye ```docs``` klasörü altındaki ```astm-rapor.pdf``` dosyasından ulaşabilirsiniz.
 
 
 ## Ekran Görüntüleri
-### Dashboard:
-![ASTM](docs/Screenshots/dashboard.png "dashboard")
 
-### Katalog:
-![ASTM](docs/Screenshots/katalog.png "katalog")
+> Aşağıdaki tüm görüntüler `docs/Screenshots_v2/` klasöründedir ve v2.0.0 itibarıyla gerçek backend'e bağlı, gerçek veriyle (canlı Celestrak TLE'leri, gerçek TLE'lerden hesaplanan çarpışma/manevra/kapasite sonuçları) çekilmiştir — mock veri değildir. Eski (Aralık 2025) görüntüler `docs/Screenshots/` altında arşiv olarak kalmıştır.
 
-### Çarpışma Analizi:
-![ASTM](docs/Screenshots/carpismaAnaliz.png "carpismaAnaliz")
+### Operasyon Merkezi (Dashboard)
+![Dashboard](docs/Screenshots_v2/01_dashboard.png "Operasyon Merkezi")
+Katalogdaki toplam uydu sayısı, son taramada bulunan kritik risk sayısı ve tespit edilen gerçek manevra sayısını gösteren ana özet ekranı. Sağdaki "Hub Komutları" TLE güncelleme ve çarpışma taramasını tetikler.
 
-### Kenetlenme:
-![ASTM](docs/Screenshots/kenetlenme.png "kenetlenme")
+### Dashboard — Sayfa Açıklama Kutusu
+![Dashboard Açıklama](docs/Screenshots_v2/02_dashboard_aciklama.png "Dashboard açıklama kutusu")
+Her sayfada bulunan katlanabilir "Bu sayfa ne anlatıyor?" kutusu — sayfadaki terimleri ve hesaplama mantığını teknik olarak açıklar.
 
-### Çarpışma Simülasyonu:
-![ASTM](docs/Screenshots/carpismaSimulasyon.png "carpismaSimulasyon")
+### Uydu Veritabanı
+![Uydu Veritabanı](docs/Screenshots_v2/03_uydu_veritabani.png "Uydu Veritabanı")
+Celestrak'tan çekilen gerçek TLE kataloğu (300+ nesne) — yörünge parametreleri ve kaynak gruplarıyla listelenir.
 
-### Manevra Optimizasyonu:
-![ASTM](docs/Screenshots/manevraOptimizasyonu.png "manevraOptimizasyonu")
+### Uydu Arama
+![Uydu Arama](docs/Screenshots_v2/04_uydu_arama_sonucu.png "Uydu arama sonucu")
+İsme göre filtrelenmiş katalog araması (örnek: "ISS").
 
-### Yörünge Simülasyonu:
-![ASTM](docs/Screenshots/yorungeSimulasyon.png "yorungeSimulasyon")
+### Çarpışma Analizi — Riskler
+![Çarpışma Analizi](docs/Screenshots_v2/05_carpisma_analizi_riskler.png "Çarpışma Analizi - Riskler")
+SGP4 ile yayılan gerçek TLE çiftleri arasında hesaplanan en yakın yaklaşım (TCA) listesi. Risk yüzdesi, mesafeye dayalı basit bir gösterge olup gerçek bir çarpışma olasılığı (Pc) değildir.
+
+### Çarpışma Analizi — Bilinen Sınırlama Uyarısı
+![Çarpışma Analizi Açıklama](docs/Screenshots_v2/06_carpisma_analizi_aciklama_uyari.png "Bilinen sınırlama uyarısı")
+Bu sayfanın açıklama kutusu, CSS modülleri arası epoch tutarsızlığı artefaktı gibi bilinen sınırlamaları doğrudan kullanıcıya bildirir (detay: `KNOWN_LIMITATIONS.md`).
+
+### Kaçınma Manevrası — Hesaplama Ekranı
+![Kaçınma Manevrası Modal](docs/Screenshots_v2/07_kacinma_manevrasi_modal_bos.png "Kaçınma manevrası modalı")
+Bir risk satırındaki "araç" ikonuyla açılan, hedef güvenli mesafe girilen optimizasyon ekranı.
+
+### Kaçınma Manevrası — Sonuç
+![Kaçınma Manevrası Sonuç](docs/Screenshots_v2/08_kacinma_manevrasi_sonuc.png "Kaçınma manevrası sonucu")
+`scipy.optimize` L-BFGS-B ile bulunan optimum ateşleme zamanı, gereken Delta-V ve yeni mesafe — gerçek sayısal optimizasyon çıktısı.
+
+### Kenetlenme & Formasyon
+![Kenetlenme](docs/Screenshots_v2/09_kenetlenme_formasyon.png "Kenetlenme ve Formasyon uçuşu")
+Mesafe ve bağıl hız eşiklerine göre "kenetli/formasyon" (DOCKING) olarak sınıflandırılan gerçek nesne çiftleri (örn. CSS/ISS modülleri).
+
+### Çarpışmayı Haritada İzleme
+![Haritada İzleme](docs/Screenshots_v2/10_carpisma_haritada_izleme.png "Çarpışma olayının haritada gösterimi")
+Bir yakınlaşma olayındaki iki nesnenin, TCA anındaki konumlarıyla haritada gösterimi.
+
+### Yörünge Simülasyonu (Canlı Harita)
+![Yörünge Simülasyonu](docs/Screenshots_v2/11_yorunge_simulasyonu.png "Yörünge Simülasyonu")
+Seçilen bir uydunun gerçek SGP4 propagasyonuyla hesaplanan yörünge izi. "CANLI TAKİP" ile marker'ın 1 saniyelik aralıklarla hareket ettiğini gösterir.
+
+### Manevra Tespiti
+![Manevra Tespiti](docs/Screenshots_v2/12_manevra_tespiti.png "Manevra Tespiti")
+Ardışık TLE setleri arasındaki BSTAR/yarı-major eksen/eksantriklik/inklinasyon farklarından tespit edilen gerçek manevra olayları, değişen parametreye göre sınıflandırılmış (İrtifa Değişimi, Düzlem Değişimi, Eksantriklik Değişimi, Kombine).
+
+### SSA Zekası — Sınıflandırma ve Kümeleme
+![SSA Zekası](docs/Screenshots_v2/13_ssa_zekasi.png "SSA Zekası")
+Yörünge rejimi haritası (GMM ile soft kümeleme) ve Random Forest ile yapılan görev/nesne sınıflandırması — kalibre edilmiş güven skorlarıyla.
+
+### SSA Zekası — Model Performans Raporu
+![SSA Performans Raporu](docs/Screenshots_v2/14_ssa_performans_raporu.png "SSA Model Performans Raporu")
+Eğitilmiş modelin confusion matrix'i, sınıf bazlı precision/recall/F1 metrikleri ve özellik önem düzeyleri (feature importance) — UCS Satellite Database üzerinde gerçek eğitim sonucu.
+
+### Yer İstasyonu Kapasite Planlama — Sayfa Açıklaması
+![Yer İstasyonu Açıklama](docs/Screenshots_v2/15_yer_istasyonu_planlama_aciklama.png "Yer İstasyonu Planlama açıklama kutusu")
+AOS/LOS, kapasite kaybı ve "Kutup İstasyonu Darboğazı" ana bulgusunun bu sayfadaki açıklaması.
+
+### Yer İstasyonu Kapasite Planlama — Genel Görünüm
+![Yer İstasyonu Genel](docs/Screenshots_v2/16_yer_istasyonu_planlama_genel.png "Yer İstasyonu Planlama")
+Aday istasyon haritası ve senaryo parametreleri (uydu sayısı, istasyon sayısı, süre).
+
+### Yer İstasyonu Kapasite Planlama — Tekil Senaryo Sonucu
+![Yer İstasyonu Senaryo Sonuç](docs/Screenshots_v2/17_yer_istasyonu_senaryo_sonuc.png "Tekil senaryo sonucu")
+10 uydu / 2 istasyon senaryosu için gerçek SGP4 tabanlı geçiş hesaplamasıyla bulunan kapasite kaybı ve %50 azaltım için gereken ek istasyon sayısı (greedy en-iyi-istasyon araması).
+
+### Yer İstasyonu Kapasite Planlama — Tüm Senaryolar (Izgara)
+![Yer İstasyonu Grid Sonuç](docs/Screenshots_v2/19_yer_istasyonu_grid_sonuc.png "Senaryo ızgarası sonucu")
+3/10/30/80 uydu × 1/2/3 istasyon ızgarasının tam koşusu — her satırda, hedefe ulaşmak için greedy aramayla seçilen istasyonların sırası (kutup istasyonları ayrı renkle işaretli) doğrudan görünür sütun olarak gösterilir.

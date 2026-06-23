@@ -32,12 +32,21 @@ async def get_ssa_results(limit: int = 50):
     rows = cur.fetchall()
     conn.close()
 
+    ssa_service.ensure_models_loaded()
     results = []
     for row in rows:
         d = dict(row)
-        d['regime_label'] = ssa_service.REGIME_MAP.get(d['cluster_id'], "Bilinmeyen Yörünge")
+        regime = ssa_service.regime_map.get(d['cluster_id'])
+        d['regime_label'] = regime['name'] if regime else "Bilinmeyen Yörünge"
         results.append(d)
     return results
+
+
+@router.get("/regimes")
+async def get_regimes():
+    """cluster_id -> {name, color, icon} eşlemesi (küme merkezlerinden dinamik hesaplanır)."""
+    ssa_service.ensure_models_loaded()
+    return ssa_service.regime_map
 
 
 @router.get("/prediction/{sat_id}")

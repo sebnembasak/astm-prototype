@@ -1,13 +1,21 @@
-> Projenin bilinen sınırlamaları ve kaynaksız sezgisel eşik değerleri için bkz. [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
+## Mimari Diyagramlar
+
+Aşağıdaki güncel sistem mimarisi, projenin tüm sürümler boyunca eklenen katmanlarını (v2.0.0 itibarıyla) gösterir. 
+
+Diğer modüllere özel diyagramlar ilgili sürüm bölümlerinde ve `docs/Diagrams/` altındadır.
+
+![Sistem Mimarisi](docs/Diagrams/sistem_mimarisi.png "Katmanlı Sistem Mimarisi v1.4.0")
 
 ---
 
 # Release Notes - v1.4.0 (Ground Station Scheduling & Capacity Planning)
 
-> **Ana Bulgu:** SSO/polar yörüngeli, büyüyen küçük uydu constellation'larında kapasite kaybı, istasyon sayısından çok istasyonların coğrafi konumuna bağlı. Kutup-bölgesi istasyonları (örn. Svalbard) SSO uydularını her turda gördüğü için orantısız geçiş yoğunluğu üretir; rastgele bir istasyon eklemek kaybı azaltmak yerine **artırabilir**. Daha da önemlisi: **EN İYİ istasyonu seçen greedy (açgözlü) bir arama bile** — 12 adaylık havuzdaki tüm seçenekleri en-iyiden-en-kötüye sırayla dener — %50 kayıp-azaltma hedefine ulaşamıyor. Bu, yanlış istasyon seçimi sorunundan öte, modelin varsayımları altında yapısal bir kapasite tavanına işaret ediyor. Detay: [Bulgu: Kutup İstasyonu Darboğazı](#bulgu-kutup-istasyonu-darboğazı).
+> **Ana Bulgu:** SSO/polar yörüngeli, büyüyen küçük uydu constellation'larında kapasite kaybı, istasyon sayısından çok istasyonların coğrafi konumuna bağlı. Kutup-bölgesi istasyonları (örn. Svalbard) SSO uydularını her turda gördüğü için orantısız geçiş yoğunluğu üretir. Rastgele bir istasyon eklemek kaybı azaltmak yerine **artırabilir**. Daha da önemlisi **EN İYİ istasyonu seçen greedy bir arama bile** (12 adaylık havuzdaki tüm seçenekleri en-iyiden-en-kötüye sırayla dener) %50 kayıp-azaltma hedefine ulaşamıyor. Bu yanlış istasyon seçimi sorunundan öte, modelin varsayımları altında yapısal bir kapasite tavanına işaret ediyor. Detay: [Bulgu: Kutup İstasyonu Darboğazı](#bulgu-kutup-istasyonu-darboğazı).
 
 ## Genel Bakış
-Bu sürüm, büyüyen pocketqube/IoT uydu constellation'ları için gerçek bir operasyonel darboğazı modeller: uydu sayısı arttıkça (3 → 10 → 30 → 80), sınırlı yer istasyonu sayısıyla geçiş pencereleri çakışmaya başlar ve bir istasyon aynı anda yalnızca bir uydudan veri indirebilir. Yeni modül, ASTM'in mevcut SGP4 propagasyon altyapısını (Faz 1-5'te oluşturulan) yer istasyonu görüş geometrisine (AOS/LOS/elevasyon) genişletir ve bunun üzerine bir çizelgeleme + kapasite planlama katmanı ekler.
+Bu sürüm büyüyen pocketqube/IoT uydu constellation'ları için gerçek bir operasyonel darboğazı modeller. Uydu sayısı arttıkça (3 → 10 → 30 → 80), sınırlı yer istasyonu sayısıyla geçiş pencereleri çakışmaya başlar ve bir istasyon aynı anda yalnızca bir uydudan veri indirebilir. Yeni modül, ASTM'in mevcut SGP4 propagasyon altyapısını yer istasyonu görüş geometrisine (AOS/LOS/elevasyon) genişletir ve bunun üzerine bir çizelgeleme + kapasite planlama katmanı ekler.
+
+![Ground Station Scheduling](docs/Diagrams/ground_station_scheduling.png "Yer İstasyonu Kapasite Planlama — Modül Mimarisi & Akış")
 
 ## Yeni Özellikler
 
@@ -20,8 +28,8 @@ Bu sürüm, büyüyen pocketqube/IoT uydu constellation'ları için gerçek bir 
 - **`processing/schedule_conflict.py`:** Aynı istasyonda zaman içinde örtüşen geçiş pencerelerini (`detect_conflicts`) ve çakışmaya taraf olan geçişlerin oranını (`conflict_ratio`) hesaplar.
 
 ### Çizelgeleme — İstasyon-Bağımlı EFT Greedy
-- **`planner/ground_scheduler.py`:** Her `PassWindow` zaten kendi `station_name`'ine özgü bir geometridir (AOS/LOS o istasyonun lat/lon'una göre hesaplanmıştır); bir pencere fiziksel olarak başka bir istasyona aktarılamaz. Bu nedenle çizelgeleme istasyon başına bağımsız bir tek-kaynak (single-resource) problemi olarak modellendi: her istasyonun kendi kuyruğu, geçişleri LOS zamanına göre (Earliest-Finish-Time) sıralayan greedy algoritmle çözülür — tek kaynak için bu, çakışmasız maksimum geçiş sayısını seçmede ispatlanmış optimaldir (klasik interval scheduling teoremi), ILP/OR-Tools gibi ağır bağımlılıklar gerekmez.
-  - **Değerlendirilen ama elenen alternatif:** İlk tasarımda istasyonlar "en az meşgul olana ata" mantığıyla birbirinin yerine geçebilen ortak bir kapasite havuzu olarak modellenmişti; bu, bir pencerenin (örn. Ankara için hesaplanmış AOS/LOS) fiilen görüş hattı olmayan başka bir istasyona (örn. Svalbard) "ödünç verilmesi" anlamına geldiği için fiziksel olarak tutarsızdı ve düzeltildi.
+- **`planner/ground_scheduler.py`:** Her `PassWindow` zaten kendi `station_name`'ine özgü bir geometridir (AOS/LOS o istasyonun lat/lon'una göre hesaplanmıştır). Bir pencere fiziksel olarak başka bir istasyona aktarılamaz. Bu nedenle çizelgeleme istasyon başına bağımsız bir tek-kaynak (single-resource) problemi olarak modellendi. Her istasyonun kendi kuyruğu, geçişleri LOS zamanına göre (Earliest-Finish-Time) sıralayan greedy algoritmle çözülür. Tek kaynak için bu, çakışmasız maksimum geçiş sayısını seçmede ispatlanmış optimaldir (klasik interval scheduling teoremi), ILP/OR-Tools gibi ağır bağımlılıklar gerekmez.
+  - **Değerlendirilen ama elenen alternatif:** İlk tasarımda istasyonlar "en az meşgul olana ata" mantığıyla birbirinin yerine geçebilen ortak bir kapasite havuzu olarak modellenmişti. Bu, bir pencerenin (örn. Ankara için hesaplanmış AOS/LOS) fiilen görüş hattı olmayan başka bir istasyona (örn. Svalbard) "ödünç verilmesi" anlamına geldiği için fiziksel olarak tutarsızdı ve düzeltildi.
   - İstasyon sayısının kapasiteyi artırması, çakışmaların istasyonlar arasında dağıtılmasından değil, her yeni istasyonun (farklı coğrafi konumda, dolayısıyla farklı/örtüşen uydu kümesini gören) kendi kuyruğunun küçülmesinden gelir.
 
 ### Kapasite Planlama Senaryo Motoru
@@ -51,26 +59,23 @@ Senaryo motoru, referans (planlanan) yörünge profiline — 525km irtifa, 97.5�
 
 **Neden:** SSO/polar yörüngeli (97.5° inklinasyon) bir uydu, kutup bölgesine yakın bir istasyondan (örn. Svalbard, 78°N) **her turda** (günde ~10-15 kez) görülür, çünkü yörüngenin yer izi her devirde kutuplara yaklaşır. Orta enlemdeki bir istasyon (örn. Ankara, 40°N) ise aynı uyduyu günde sadece birkaç kez görür. Bu yüzden 2. istasyon olarak Svalbard eklendiğinde toplam geçiş talebi orantısızca büyüyor (25 uydu için 82 → 352), ama bu yeni istasyon hâlâ aynı anda yalnızca bir uyduyla ilgilenebilen tek-kaynak bir kuyruk — kendi içinde çok daha sık çakışma yaşıyor ve sistem genelinde kapasite kaybı **artıyor** (%37.8 → %52.8), azalmıyor. 3. istasyon olarak başka bir kutup-bölgesi noktası (Punta Arenas, güney yarım küre) eklenince bu yük ikiye bölünüyor ve kayıp kısmen geriliyor (%52.8 → %50.0) ama yine de tek-istasyon durumunun üzerinde kalıyor.
 
-**Çıkarım (güçlendirilmiş bulgu — greedy en-iyi-istasyon araması ile doğrulandı):** İstasyon eklemek kapasiteyi otomatik olarak artırmıyor. Yeni istasyon da yüksek-görünürlük (kutup/yarı-kutup) bölgesindeyse, kapasiteden çok **talebi** büyütüp mevcut darboğazı genişletebiliyor. Bunun "yanlış istasyon seçimi" sorunu olmadığını doğrulamak için `CapacityPlanningService._stations_needed_for_target`, havuzu sabit sırayla denemek yerine her adımda **kalan tüm adayları tek tek deneyip kaybı en çok azaltanı seçen** bir greedy arama olarak çalıştırıldı. Sonuç: greedy arama gerçekten doğru çalışıyor — örn. 10 uydu/1 istasyon senaryosunda seçilen sıra `Singapore → Perth → Toronto → Quito → Cape Town → Wellington → Tokyo → Punta Arenas → Reykjavik → Fairbanks` oldu; yani algoritma orta/düşük enlem istasyonlarını önce, kutup-bölgesi istasyonlarını (Punta Arenas, Reykjavik, Fairbanks) bilerek EN SONA bırakıyor. Buna rağmen **12 adaylık havuzun tamamı en iyi sırayla eklense bile** hiçbir senaryoda (3 uydu hariç) %50 kayıp-azaltma hedefine ulaşılamadı (`additional_stations_for_target=None`). Bu, basit coğrafi istasyon ekleme stratejisinin (en iyi seçimle bile) yeterli olmadığını, farklı bir yer-segmenti stratejisinin (örn. yüksek-verim/çoklu-anten istasyonlar, inter-satellite link, veya kutup-bölgesinde kapasite yoğunlaştırma) gerekebileceğini düşündürüyor — ancak bu bir hipotez/ileri-bakış gözlemidir, kesin bir çözüm reçetesi değildir.
+**Çıkarım:** İstasyon eklemek kapasiteyi otomatik olarak artırmıyor. Yeni istasyon da yüksek-görünürlük (kutup/yarı-kutup) bölgesindeyse, kapasiteden çok **talebi** büyütüp mevcut darboğazı genişletebiliyor. Bunun "yanlış istasyon seçimi" sorunu olmadığını doğrulamak için `CapacityPlanningService._stations_needed_for_target`, havuzu sabit sırayla denemek yerine her adımda **kalan tüm adayları tek tek deneyip kaybı en çok azaltanı seçen** bir greedy arama olarak çalıştırıldı. Sonuç: greedy arama gerçekten doğru çalışıyor — örn. 10 uydu/1 istasyon senaryosunda seçilen sıra `Singapore → Perth → Toronto → Quito → Cape Town → Wellington → Tokyo → Punta Arenas → Reykjavik → Fairbanks` oldu; yani algoritma orta/düşük enlem istasyonlarını önce, kutup-bölgesi istasyonlarını (Punta Arenas, Reykjavik, Fairbanks) bilerek EN SONA bırakıyor. Buna rağmen **12 adaylık havuzun tamamı en iyi sırayla eklense bile** hiçbir senaryoda (3 uydu hariç) %50 kayıp-azaltma hedefine ulaşılamadı (`additional_stations_for_target=None`). Bu, basit coğrafi istasyon ekleme stratejisinin (en iyi seçimle bile) yeterli olmadığını, farklı bir yer-segmenti stratejisinin (örn. yüksek-verim/çoklu-anten istasyonlar, inter-satellite link, veya kutup-bölgesinde kapasite yoğunlaştırma) gerekebileceğini düşündürüyor — ancak bu bir hipotez/ileri-bakış gözlemidir, kesin bir çözüm değildir.
 
-**Gerçek dünya emsali:** SSO ağırlıklı yer gözlem constellation'ı işleten operatörler (örn. Planet Labs, ICEYE gibi yoğun SSO filolarına sahip şirketler) bu nedenle tipik olarak kutup/yarı-kutup bölgesinde birden fazla yer istasyonuna veya yüksek-verim (çoklu anten / X-band) yer segmentine yatırım yapar — kutup bölgesi SSO geçiş yoğunluğunun doğal bir sonucu olarak endüstride bilinen bir kapasite planlama deseni. Bu genel bir endüstri gözlemidir; spesifik bir akademik kaynak/sayısal referans verilmemiştir, abartılı bir iddia olarak okunmamalıdır.
+**Gerçek dünya emsali:** SSO ağırlıklı yer gözlem constellation'ı işleten operatörler bu nedenle tipik olarak kutup/yarı-kutup bölgesinde birden fazla yer istasyonuna veya yüksek-verim (çoklu anten / X-band) yer segmentine yatırım yapar. Kutup bölgesi SSO geçiş yoğunluğunun doğal bir sonucu olarak endüstride bilinen bir kapasite planlama deseni. Bu genel bir gözlemidir, spesifik bir akademik kaynak/sayısal referans verilmemiştir, kesin bir iddia olarak okunmamalıdır.
 
-**Modelin sınırları:** Bu sonuç, modelin varsayımları (10° minimum elevasyon, istasyon başına tek-kanal indirme kapasitesi, 12 aday lokasyon, 24 saatlik pencere) altında geçerlidir. Gerçek elevasyon eşiği, çoklu-anten/çoklu-kanal istasyon mimarisi, veya daha geniş aday istasyon havuzuyla sonuç değişebilir — bu analiz kesin bir imkansızlık iddiası değil, basit coğrafi istasyon eklemenin tek başına yeterli olmayabileceğine işaret eden bir karar-destek gözlemidir.
+**Modelin sınırları:** Bu sonuç, modelin varsayımları (10° minimum elevasyon, istasyon başına tek-kanal indirme kapasitesi, 12 aday lokasyon, 24 saatlik pencere) altında geçerlidir. Gerçek elevasyon eşiği, çoklu-anten/çoklu-kanal istasyon mimarisi, veya daha geniş aday istasyon havuzuyla sonuç değişebilir. Bu analiz kesin bir imkansızlık iddiası değil, basit coğrafi istasyon eklemenin tek başına yeterli olmayabileceğine işaret eden bir karar-destek gözlemidir.
 
 ## Veri ve Varsayımlar Şeffaflığı
-
-Bu modülün şirket sunumuna gidecek olması nedeniyle, kullanılan her parametrenin "gerçek veri" mi yoksa "mühendislik varsayımı" mı olduğu açıkça etiketlenmiştir:
-
-| Parametre | Değer/Kaynak | Etiket | Not |
-|---|---|---|---|
-| TLE verisi (line1/line2) | Celestrak `stations`/`visual`/`debris`/`resource` grupları, canlı HTTP fetch (`ingest/tle_fetcher.py`) | **Gerçek veri** | Sentetik/rastgele üretim yok; ham TLE metni DB'de saklanıyor |
+| Parametre | Değer/Kaynak | Etiket | Not                                                                                                                                                                                                                                                                          |
+|---|---|---|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| TLE verisi (line1/line2) | Celestrak `stations`/`visual`/`debris`/`resource` grupları, canlı HTTP fetch (`ingest/tle_fetcher.py`) | **Gerçek veri** | Sentetik/rastgele üretim yok; ham TLE metni DB'de saklanıyor                                                                                                                                                                                                                 |
 | Senaryolardaki uydu seçimi (25/80 vb.) | DB'deki gerçek TLE kataloğundan, 525km/97.5° SSO referans profiline inklinasyon+irtifa bandıyla (90-100°, 400-700km) filtrelenip en yakın N nesne (`tle_service.get_satellites_by_orbit_profile`) | **Gerçek veri, profile-eşleştirmeli seçim** | Bu nesneler operatörün kendi (henüz fırlatılmamış) constellation'ı DEĞİL — gerçek yörünge fiziğine sahip, benzer geçiş istatistiği üreten gerçek-dünya SSO yer-gözlem nesneleri (80'lik sette fiilen yer alanlardan örnekler: SkySat, SAOCOM, Cartosat, COSMO-SkyMed ailesi) |
-| İstasyon koordinatları (`CANDIDATE_GROUND_STATIONS`) | Gerçek şehir/bölge lat-lon değerleri (Ankara, Svalbard, Punta Arenas, vb.) | **Gerçek koordinat, varsayımsal aday havuzu** | Bu noktalarda fiilen kurulu bir operatöre ait/üçüncü-parti yer istasyonu olduğu iddia edilmiyor; küresel kapsama çeşitliliği için seçilmiş temsili adaylar |
-| `DEFAULT_MIN_ELEVATION_DEG = 10°` | Tüm istasyonlarda sabit eşik | **Mühendislik varsayımı (endüstri tipik aralığı)** | 5-15° aralığı SATCOM link bütçesi pratiğinde yaygın (düşük elevasyonda atmosferik atenüasyon/multipath artar, bkz. ITU-R P.618 atmosferik yayılım önerileri); gerçek bir operatör link bütçesiyle kalibre edilmemiştir |
-| `DEFAULT_STATION_ALT_KM = 0.0` | Tüm istasyonlar deniz seviyesi kabul ediliyor | **Mühendislik basitleştirmesi** | Gerçek istasyon irtifaları elevasyon hesabını ~0.01-0.1° düzeyinde değiştirir, ihmal edilebilir düzeyde ama gerçek değer değil |
-| `DEFAULT_PASS_SCAN_STEP_SECONDS = 60` | AOS/LOS tarama adımı | **Mühendislik varsayımı (performans/hassasiyet dengesi)** | Lineer interpolasyonla saniye hassasiyetine getiriliyor; geçiş pencereleri dakikalar sürdüğü için yeterli |
-| Senaryo süresi (24 saat) | Sabit pencere | **Mühendislik varsayımı** | Günlük operasyon döngüsünü temsil eden makul ama keyfi seçim |
-| `SCENARIO_SATELLITE_COUNTS = [3, 10, 30, 80]` | Tipik bir büyüme eğrisi varsayımı | **Mühendislik/iş varsayımı** | Belirli bir operatörün doğrulanmış gerçek yol haritası sayıları değilse varsayımsaldır |
+| İstasyon koordinatları (`CANDIDATE_GROUND_STATIONS`) | Gerçek şehir/bölge lat-lon değerleri (Ankara, Svalbard, Punta Arenas, vb.) | **Gerçek koordinat, varsayımsal aday havuzu** | Bu noktalarda fiilen kurulu bir operatöre ait/üçüncü-parti yer istasyonu olduğu iddia edilmiyor; küresel kapsama çeşitliliği için seçilmiş temsili adaylar                                                                                                                   |
+| `DEFAULT_MIN_ELEVATION_DEG = 10°` | Tüm istasyonlarda sabit eşik | **Mühendislik varsayımı (endüstri tipik aralığı)** | 5-15° aralığı SATCOM link bütçesi pratiğinde yaygın (düşük elevasyonda atmosferik atenüasyon/multipath artar, bkz. ITU-R P.618 atmosferik yayılım önerileri); gerçek bir operatör link bütçesiyle kalibre edilmemiştir                                                       |
+| `DEFAULT_STATION_ALT_KM = 0.0` | Tüm istasyonlar deniz seviyesi kabul ediliyor | **Mühendislik basitleştirmesi** | Gerçek istasyon irtifaları elevasyon hesabını ~0.01-0.1° düzeyinde değiştirir, ihmal edilebilir düzeyde ama gerçek değer değil                                                                                                                                               |
+| `DEFAULT_PASS_SCAN_STEP_SECONDS = 60` | AOS/LOS tarama adımı | **Mühendislik varsayımı (performans/hassasiyet dengesi)** | Lineer interpolasyonla saniye hassasiyetine getiriliyor; geçiş pencereleri dakikalar sürdüğü için yeterli                                                                                                                                                                    |
+| Senaryo süresi (24 saat) | Sabit pencere | **Mühendislik varsayımı** | Günlük operasyon döngüsünü temsil eden gerçekçi ama varsayımsal seçim                                                                                                                                                                                                        |
+| `SCENARIO_SATELLITE_COUNTS = [3, 10, 30, 80]` | Tipik bir büyüme eğrisi varsayımı | **Mühendislik/iş varsayımı** | Belirli bir operatörün doğrulanmış gerçek yol haritası sayıları değilse varsayımsaldır                                                                                                                                                                                       |
 
 ## Test Altyapısı
 - **`tests/test_ground_scheduling.py`:** 14 deterministik test — `elevation_deg` için bilinen geometrik noktalarla (tepe noktası, antipod) doğrulama; `find_pass_windows` için sahte `propagate_func`/`elevation_func` enjeksiyonuyla AOS/LOS + lineer interpolasyon doğruluğu; `detect_conflicts`/`conflict_ratio` için bilinen çakışma senaryoları; `schedule_passes` için EFT-greedy doğruluğu ve istasyonlar arası izolasyonun (bir pencerenin asla yanlış istasyona atanmadığının) doğrulanması.
@@ -79,15 +84,12 @@ Bu modülün şirket sunumuna gidecek olması nedeniyle, kullanılan her paramet
 ## Performans
 - **Astropy batch optimizasyonu:** `compute_all_pass_windows`, istasyon başına TÜM uyduların TEME konumlarını TEK bir astropy `transform_to` çağrısında batch'ler (`elevation_deg_batch_multi`, `processing/ground_station.py`) — önceden her (uydu, istasyon) çifti için ayrı astropy çağrısı yapılıyordu, bu da sabit ~0.38s/çağrı ek yük taşıyordu. Ölçülen etki: 80 uydu × 1 istasyon için ~30s → ~4.8s (~7x); tam senaryo ızgarası (3/10/30/80 × 1/2/3, greedy istasyon araması dahil) ~25-30 dakikadan **~4 dakikaya** indi. Sonuçlar eski yöntemle bit-bit doğrulandı, davranış değişikliği yok.
 
-## Değiştirilen Dosyalar
-`processing/ground_station.py` (yeni), `processing/schedule_conflict.py` (yeni), `planner/ground_scheduler.py` (yeni), `service/capacity_planning_service.py` (yeni), `backend/api/router_ground_scheduling.py` (yeni), `ground_scheduling_config.py` (yeni), `backend/models/db.py`, `main.py`, `dashboard/index.html`, `dashboard/assets/js/main.js`, `tests/test_ground_scheduling.py` (yeni), `tests/test_capacity_planning_service.py` (yeni), `processing/propagator.py` (`orbit_params_from_tle` eklendi), `service/tle_service.py` (`get_satellites_by_orbit_profile` eklendi), `ingest/tle_fetcher.py` (`resource` grubu eklendi)
-
 ---
 
 # Release Notes - v1.3.0 (Manevra Tespiti, SSA Model İyileştirmeleri & Test Altyapısı)
 
 ## Genel Bakış
-Bu sürüm SSA yol haritasının Faz 3-5'ini tamamlar: geçmiş manevraları TLE zaman serisinden tespit eden yeni bir modül, SSA kümeleme/anomali/güven kalibrasyonu algoritmalarında üç ayrı iyileştirme, çekirdek uzay mekaniği modülleri için ilk unit test paketi ve iki dashboard düzeltmesi içerir.
+Bu sürüm TLE zaman serisinden tespit eden yeni bir modül, SSA kümeleme/anomali/güven kalibrasyonu algoritmalarında üç ayrı iyileştirme, çekirdek uzay mekaniği modülleri için ilk unit test paketi ve iki dashboard düzeltmesi içerir.
 
 ## Yeni Özellikler
 
@@ -101,6 +103,8 @@ Bu sürüm SSA yol haritasının Faz 3-5'ini tamamlar: geçmiş manevraları TLE
 - **Dashboard:** "Manevra Tespiti" paneli — tip, Δa/Δi/Δe, tahmini ΔV ve güven skorunu listeleyen tablo.
 
 ## SSA Model İyileştirmeleri (Faz 4-5)
+
+![SSA ML Pipeline](docs/Diagrams/ssa_ml_pipeline.png "SSA / Yapay Zeka Pipeline")
 
 - **Kümeleme — K-Means → Gaussian Mixture Model:** `service/ssa_service.py` — K-Means'in sert (hard) küme sınırları yerine GMM, rejim sınırındaki uydular için olasılıksal (soft) küme ataması yapar. Arayüz (`fit`/`predict`) aynı kaldığı için API/dashboard/DB şemasında değişiklik gerekmedi.
 - **Anomali Tespiti — Isolation Forest + Local Outlier Factor Ensemble:** Isolation Forest'ın global/eksen-hizalı bölünmelerle gözden kaçırdığı, yoğun bir kümenin İÇİNDEKİ lokal anormallikleri yakalamak için LOF (`novelty=True`) eklendi; iki yöntemden biri anomali derse nesne işaretlenir (OR mantığı). 170 canlı uydu üzerinde doğrulama: IF tek başına 1, LOF tek başına 21 ek anomali yakaladı (toplam ~%13, önceki ~%3'ten yüksek — kaçırılan gerçek bir anomalinin maliyeti fazladan bir uyarıdan yüksek olduğu için bilinçli tasarım).
@@ -116,19 +120,21 @@ Bu sürüm SSA yol haritasının Faz 3-5'ini tamamlar: geçmiş manevraları TLE
 - **Manevra Tespiti paneli düzeni:** SSA panelindeki bir HTML div etiketinde fazladan kapanış nedeniyle `.main-content` kapsayıcısı erken kapanıyor, bu da Manevra Tespiti panelinin ve footer'ın sidebar düzeninin tamamen dışına (sayfanın çok altına) taşmasına yol açıyordu. Etiket dengesizliği düzeltildi.
 - **Yörünge yenileme:** Haritadaki canlı takip, 100 dakikalık hesaplama penceresinin sonuna ulaştığında uydu işaretçisi son noktada donuyordu (yeni veri çekilmiyordu). Son noktaya 10 saniye kala arka planda yeni bir 100 dakikalık pencere otomatik çekilip yörünge çizgisi/işaretçi güncelleniyor.
 
-## Değiştirilen Dosyalar
-`processing/maneuver_detection.py` (yeni), `service/maneuver_detection_service.py` (yeni), `backend/api/router_maneuver_detection.py` (yeni), `service/ssa_service.py`, `backend/models/db.py`, `main.py`, `dashboard/index.html`, `dashboard/assets/js/main.js`, `tests/test_conjunction.py` (yeni), `tests/test_optimizer.py` (yeni)
-
 ---
 
 # Release Notes - v1.2.0 (Core Fixes & Data Integrity)
 
 ## Genel Bakış
-Bu sürüm yeni özellik eklemez; temel algoritma hatalarını düzeltir, veri katmanını sağlamlaştırır ve işlevselliği genişletir.
+Bu sürümde yeni özellik eklenmemiştir. Temel algoritma hataların düzeltildi, veri katmanını sağlamlaştırıldı ve işlevselliği genişletildi.
 
 ## Düzeltmeler ve İyileştirmeler
 
 ### Faz 1 — Çekirdek Algoritma Hataları
+
+| Çarpışma Tarama Pipeline | Manevra Optimizasyonu (Sequence) |
+|---|---|
+| ![Çarpışma Tarama Pipeline](docs/Diagrams/conjunction_pipeline.png "Çarpışma Tarama Pipeline") | ![Manevra Optimizasyonu](docs/Diagrams/manevra_optimizasyonu.png "Manevra Optimizasyonu Sequence Diyagramı") |
+
 - **propagate_satrec_single** artık `(r, v)` tuple döndürüyor. Önceki sürümde hız vektörü atılıyor, tüm çağrı noktaları sonuç olarak 2× SGP4 çağrısıyla finite difference hesaplıyordu. `conjunction.py`, `conjunction_service.py`, `optimizer.py` güncellendi.
 - **SSA özellik uyumsuzluğu giderildi.** `input_raw` içinde `alt` iki kez yazılıyordu (`[incl, ecc, period, alt, alt]`). Artık gerçek `perigee` ve `apogee` ayrı hesaplanıp modele veriliyor; HEO uydularında ML doğruluğu düzeldi.
 - **Kırılgan BSTAR parser silindi.** Negatif ve sıfır değerlerde yanlış sonuç veren özel parser kaldırıldı, `tle_to_satrec().bstar` kullanılıyor.
@@ -144,9 +150,6 @@ Bu sürüm yeni özellik eklemez; temel algoritma hatalarını düzeltir, veri k
 ### Faz 4 — Temizlik ve Güvenlik
 - **`skyfield` bağımlılığı kaldırıldı.** `requirements.txt`'te tanımlıydı ancak hiçbir yerde import edilmiyordu.
 - **CORS yapılandırılabilir hale getirildi.** `allow_origins=["*"]` production için güvensizdi. Artık `ALLOWED_ORIGINS` env değişkeninden okunuyor (virgülle ayrılmış liste); değişken set edilmezse geliştirme kolaylığı için `["*"]` kalıyor.
-
-## Değiştirilen Dosyalar
-`processing/propagate_wrapper.py`, `processing/conjunction.py`, `service/conjunction_service.py`, `service/ssa_service.py`, `planner/optimizer.py`, `ingest/tle_fetcher.py`, `backend/models/db.py`, `main.py`, `requirements.txt`
 
 ---
 
@@ -204,3 +207,6 @@ Uyduları coğrafi veya politik etiketlerden bağımsız, sadece fiziksel yerle�
 ### 5. Kullanım
 Veri setini indirip `data/ucs_database.csv` olarak kaydetmeniz yeterlidir.
 `https://www.kaggle.com/datasets/mexwell/ucs-satellite-database/data`
+
+> Projenin bilinen sınırlamaları ve endüstri standardı olmayan eşik değerleri için bkz. [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
+

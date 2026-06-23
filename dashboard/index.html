@@ -53,7 +53,20 @@
     <div class="main-content">
 
         <div id="dashboard" class="content-section animate__animated animate__fadeIn">
-            <h3 class="mb-4 fw-light">Operasyon Merkezi</h3>
+            <h3 class="mb-2 fw-light"><i class="fas fa-chart-pie text-info me-2"></i>Operasyon Merkezi</h3>
+
+            <button class="explainer-toggle mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#dash-explainer" aria-expanded="false">
+                <span><i class="fas fa-lightbulb me-2"></i>Bu sayfa ne anlatıyor?</span>
+                <i class="fas fa-chevron-down chevron"></i>
+            </button>
+            <div class="collapse explainer-body mb-4" id="dash-explainer">
+                <ul class="small opacity-90 mb-0" style="line-height: 1.7;">
+                    <li><strong>Katalogdaki Nesne:</strong> Veritabanında kayıtlı, Celestrak'tan gerçek zamanlı çekilmiş TLE (yörünge verisi) sayısı — uydu, roket gövdesi ve enkaz dahil.</li>
+                    <li><strong>Kritik Riskler:</strong> Son çarpışma taramasında bulunan, mesafe eşiğinin altında kalan potansiyel çarpışma uyarısı sayısı.</li>
+                    <li><strong>Tespit Edilen Manevra:</strong> Ardışık TLE çiftleri arasındaki yörünge elemanı farkından (mean-element farkı yöntemi) tespit edilen geçmiş manevra sayısı.</li>
+                    <li><strong>Celestrak Güncelle:</strong> Katalogdaki TLE'leri Celestrak'tan yeniden çeker. <strong>Tarama Başlat:</strong> Mevcut katalog üzerinde çarpışma taraması çalıştırır (bkz. <code class="text-warning">KNOWN_LIMITATIONS.md</code> — bu tarama yalnızca tarama anına yakın zamanlı yakınlaşmaları güvenilir şekilde yakalar).</li>
+                </ul>
+            </div>
 
             <div class="row g-4">
                 <div class="col-md-4">
@@ -76,11 +89,11 @@
                 </div>
                 <div class="col-md-4">
                     <div class="card-glass p-4 text-center">
-                        <div class="small text-uppercase ls-1">Sistem Sağlığı</div>
-                         <div class="display-5 fw-bold text-info my-2" id="stat-sys-health">
+                        <div class="small text-uppercase ls-1">Tespit Edilen Manevra</div>
+                         <div class="display-5 fw-bold text-info my-2" id="stat-maneuver-count">
                              <span class="spinner-border spinner-border-sm text-info" role="status"></span>
                         </div>
-                        <div class="small text-info" id="stat-sys-msg"><i class="fas fa-server"></i> Kontrol Ediliyor...</div>
+                        <div class="small text-info"><i class="fas fa-rocket"></i> Mean-Element Farkı Analizi</div>
                     </div>
                 </div>
             </div>
@@ -90,7 +103,6 @@
                     <div class="card-glass h-100">
                         <div class="card-header-glass">
                             <span><i class="fas fa-history me-2"></i>Son Yakınlaşma Olayları</span>
-                            <span class="badge bg-danger bg-opacity-25 text-danger border border-danger">LIVE</span>
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
@@ -127,7 +139,20 @@
         </div>
 
         <div id="satellites" class="content-section d-none animate__animated animate__fadeIn">
-            <h3 class="mb-4 fw-light">Uydu Veritabanı</h3>
+            <h3 class="mb-2 fw-light"><i class="fas fa-database text-info me-2"></i>Uydu Veritabanı</h3>
+
+            <button class="explainer-toggle mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#sat-explainer" aria-expanded="false">
+                <span><i class="fas fa-lightbulb me-2"></i>Bu sayfa ne anlatıyor?</span>
+                <i class="fas fa-chevron-down chevron"></i>
+            </button>
+            <div class="collapse explainer-body mb-4" id="sat-explainer">
+                <ul class="small opacity-90 mb-0" style="line-height: 1.7;">
+                    <li><strong>NORAD ID:</strong> Bir uzay nesnesinin küresel olarak benzersiz takip numarası — aynı isimde birden fazla gerçek nesne olabilir (örn. eski roket gövdeleri), bu yüzden asıl kimlik NORAD ID'dir.</li>
+                    <li><strong>Kaynak:</strong> TLE'nin hangi Celestrak grubundan (stations/visual/debris/resource) çekildiği — tamamı gerçek, canlı kataloğdan, sentetik veri üretilmez.</li>
+                    <li><strong>İncele:</strong> Seçilen uydunun gerçek SGP4 yörüngesini canlı haritada (Yörünge Simülasyonu) çizer.</li>
+                </ul>
+            </div>
+
             <div class="card-glass">
                 <div class="card-body">
                     <div class="input-group mb-4">
@@ -139,9 +164,9 @@
                         <table class="table table-space table-hover">
                             <thead>
                                 <tr>
-                                    <th>NORAD ID</th>
+                                    <th title="Küresel benzersiz takip numarası" data-bs-toggle="tooltip">NORAD ID</th>
                                     <th>Uydu Adı</th>
-                                    <th>Kaynak</th>
+                                    <th title="Hangi Celestrak grubundan geldiği" data-bs-toggle="tooltip">Kaynak</th>
                                     <th>İşlem</th>
                                 </tr>
                             </thead>
@@ -155,8 +180,8 @@
         </div>
 
         <div id="conjunctions" class="content-section d-none animate__animated animate__fadeIn">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3 class="fw-light">Çarpışma Analizi (CDM)</h3>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h3 class="fw-light"><i class="fas fa-radiation-alt text-danger me-2"></i>Çarpışma Analizi (CDM)</h3>
 
                 <div class="btn-group" role="group">
                     <input type="radio" class="btn-check" name="alertType" id="btnRadioCollision" autocomplete="off" checked onclick="switchAlertType('COLLISION')">
@@ -169,6 +194,23 @@
                 <button class="btn btn-success btn-sm ms-2" onclick="loadAlerts()"><i class="fas fa-redo me-2"></i>Yenile</button>
             </div>
 
+            <button class="explainer-toggle mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#conj-explainer" aria-expanded="false">
+                <span><i class="fas fa-lightbulb me-2"></i>Bu sayfa ne anlatıyor? (önemli bir uyarı dahil)</span>
+                <i class="fas fa-chevron-down chevron"></i>
+            </button>
+            <div class="collapse explainer-body mb-4" id="conj-explainer">
+                <ul class="small opacity-90 mb-3" style="line-height: 1.7;">
+                    <li><strong>CDM (Conjunction Data Message):</strong> Uzay durum farkındalığı (SSA) literatüründe, iki nesne arasındaki yakınlaşma riskini raporlamak için kullanılan standart mesaj formatının adı — bu sayfa, sistemin tespit ettiği yakınlaşmaları bu mantıkla listeler.</li>
+                    <li><strong>TCA (Time of Closest Approach):</strong> İki nesnenin birbirine en yakın olacağı, SGP4 (Simplified General Perturbations 4) yörünge yayılımıyla hesaplanan an.</li>
+                    <li><strong>Miss Distance:</strong> TCA anındaki tahmini en kısa mesafe (km).</li>
+                    <li><strong>Risk (%):</strong> Mesafeye dayalı bir skor — 10 km'nin altı %100 (kritik), 75 km'nin üstü %0 olacak şekilde lineer ölçeklenir. <strong>Bu, gerçek bir çarpışma olasılığı (Pc — probability of collision) değildir</strong>, basitleştirilmiş bir mesafe göstergesidir; tam bir Pc hesabı nesnelerin konum kovaryans matrislerini gerektirir.</li>
+                    <li><strong>Kenetlenme & Formasyon (DOCKING):</strong> Mesafe &lt;1km VE bağıl hız &lt;10 m/s ise sistem bunu çarpışma değil, kenetli/formasyon uçuşu (örn. ISS/CSS modülleri) olarak sınıflandırır.</li>
+                </ul>
+                <div class="alert alert-warning bg-opacity-10 border-warning small mb-0">
+                    <i class="fas fa-triangle-exclamation me-2"></i><strong>Bilinen sınırlama:</strong> Aynı uzay istasyonunun farklı modülleri (örn. CSS bileşenleri) arasında bazen yüksek risk skoru (%100) görülebilir. Bu genelde gerçek bir tehlike değil — modüllerin TLE'leri farklı zamanlarda (epoch) güncellenmiş olabilir, gösterilen mesafe bu epoch farkının SGP4 ekstrapolasyon artefaktıdır. Yüksek riskli bir çift aynı istasyona aitse, önce ilgili TLE'lerin epoch'larının yakın olup olmadığını kontrol edin. Detay: <code class="text-warning">KNOWN_LIMITATIONS.md</code> → "Kenetli Nesnelerde Epoch Tutarsızlığı Artefaktı".
+                </div>
+            </div>
+
             <div id="conj-card" class="card-glass border-danger border-opacity-25">
                 <div class="card-header-glass text-danger" id="conj-header-text">
                     <span><i class="fas fa-exclamation-triangle me-2"></i>Kritik Yakınlaşmalar</span>
@@ -178,11 +220,11 @@
                         <table class="table table-space table-hover align-middle mb-0">
                             <thead>
                                 <tr>
-                                    <th>Risk</th>
+                                    <th title="Mesafeye dayalı basitleştirilmiş skor, gerçek çarpışma olasılığı (Pc) değil" data-bs-toggle="tooltip">Risk</th>
                                     <th>Birincil</th>
                                     <th>İkincil</th>
-                                    <th>TCA (UTC)</th>
-                                    <th>Miss Dist.</th>
+                                    <th title="Time of Closest Approach — en yakın geçiş zamanı" data-bs-toggle="tooltip">TCA (UTC)</th>
+                                    <th title="Tahmini en kısa mesafe" data-bs-toggle="tooltip">Miss Dist.</th>
                                     <th>Aksiyonlar</th>
                                 </tr>
                             </thead>
@@ -198,8 +240,20 @@
                 <h3 class="fw-light m-0"><i class="fas fa-globe-asia text-info me-2"></i>Yörünge Simülasyonu</h3>
                 <div>
                     <button class="btn btn-sm btn-outline-light me-2" onclick="clearMap()"><i class="fas fa-trash me-1"></i>Haritayı Temizle</button>
-                    <span class="badge bg-secondary">Live</span>
+                    <span class="badge bg-secondary" id="map-live-badge" title="Marker'lar gerçek SGP4 verisiyle, 1 saniyelik aralıklarla canlı güncellenir" data-bs-toggle="tooltip">Henüz uydu eklenmedi</span>
                 </div>
+            </div>
+
+            <button class="explainer-toggle mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#map-explainer" aria-expanded="false">
+                <span><i class="fas fa-lightbulb me-2"></i>Bu sayfa ne anlatıyor?</span>
+                <i class="fas fa-chevron-down chevron"></i>
+            </button>
+            <div class="collapse explainer-body mb-3" id="map-explainer">
+                <ul class="small opacity-90 mb-0" style="line-height: 1.7;">
+                    <li><strong>Çizilen eğri:</strong> Seçilen uydunun, "şu an"dan itibaren gerçek SGP4 (Simplified General Perturbations 4) propagasyonuyla hesaplanmış yer izi (ground track) — iki nokta arasında çekilmiş doğrusal bir tahmin değildir.</li>
+                    <li><strong>Eğrinin şekli:</strong> Harita Web Mercator projeksiyonu kullanır; bu projeksiyonda dikey ölçek faktörü enlemin sekantıyla orantılı olarak büyür. Bu nedenle yüksek inklinasyonlu (kutupsal/SSO) bir yörüngenin eğrisi ekvator civarında daha düşük eğimli, kutup bölgelerine yaklaşırken daha dik görünür. Bu, projeksiyonun matematiksel bir özelliğidir ve bir çizim hatası teşkil etmez.</li>
+                    <li><strong>+ Uydu Ekle:</strong> Aynı anda birden fazla uydu seçilip karşılaştırılabilir, her birine farklı renk atanır.</li>
+                </ul>
             </div>
 
             <div class="map-wrapper">
@@ -233,7 +287,23 @@
         </div>
 
   <div id="ssa-panel" class="content-section d-none animate__animated animate__fadeIn">
-    <h3 class="mb-4 fw-light">Yapay Zeka ile Görev ve Nesne Sınıflandırma</h3>
+    <h3 class="mb-2 fw-light"><i class="fas fa-brain text-info me-2"></i>Yapay Zeka ile Görev ve Nesne Sınıflandırma</h3>
+
+    <button class="explainer-toggle mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#ssa-explainer" aria-expanded="false">
+        <span><i class="fas fa-lightbulb me-2"></i>Bu sayfa ne anlatıyor?</span>
+        <i class="fas fa-chevron-down chevron"></i>
+    </button>
+    <div class="collapse explainer-body mb-4" id="ssa-explainer">
+        <ul class="small opacity-90 mb-3" style="line-height: 1.7;">
+            <li><strong>AI Modelini Eğit:</strong> Random Forest sınıflandırıcıyı (çok sayıda karar ağacının oylamasına dayanan bir topluluk/ensemble öğrenme yöntemi) gerçek UCS uydu veri setiyle (7.500+ kayıt) yeniden eğitir.</li>
+            <li><strong>Kataloğu Sınıflandır:</strong> Eğitilmiş modeli, veritabanındaki canlı katalog üzerinde çalıştırır — her uydu için yörünge rejimi, görev tahmini, anomali ve sönümlenme riski hesaplar.</li>
+            <li><strong>Yörünge Rejimi:</strong> Uydunun fiziksel özelliklerine göre, Gaussian Mixture Model (GMM — K-Means'teki sert küme sınırları yerine olasılıksal/yumuşak üyelik ataması yapan bir kümeleme yöntemi) ile atandığı küme: LEO (Low Earth Orbit), MEO (Medium Earth Orbit), GEO (Geostationary Orbit), HEO (Highly Elliptical Orbit) veya VLEO (Very Low Earth Orbit). Küme numaraları her eğitimde değişebildiği için isim eşlemesi küme merkezlerinden (ortalama irtifa, dış merkezlik) dinamik olarak hesaplanır.</li>
+            <li><strong>Güven (Confidence):</strong> Modelin görev tahminine ne kadar güvendiği — ham olasılık değil, çapraz doğrulamayla (`CalibratedClassifierCV`) kalibre edilmiş bir değerdir.</li>
+            <li><strong><i class="fas fa-exclamation-triangle text-danger"></i> Anomali işareti:</strong> İki yöntemden biri bu nesneyi normal-dışı bulduğunda işaretlenir: Isolation Forest (veriyi rastgele bölerek aykırı noktaları izole eden algoritma) VEYA Local Outlier Factor / LOF (bir noktanın yerel komşuluk yoğunluğuna göre aykırılığını ölçen algoritma).</li>
+            <li><strong>Sönümlenme Riski:</strong> İrtifa &lt;350km VE BSTAR (TLE'den türetilen atmosferik sürüklenme/drag katsayısı) &gt;0.0005 ise "KRİTİK" olarak işaretlenir — bu basitleştirilmiş bir mühendislik kuralıdır, gerçek bir atmosferik yoğunluk modeli (örn. NRLMSISE-00) değildir.</li>
+        </ul>
+    </div>
+
     <div class="row g-4">
         <div class="col-md-12">
             <div class="card-glass p-4 mb-4">
@@ -254,8 +324,9 @@
 
         <div class="col-12">
             <div class="card-glass p-4 mb-4">
-                <h6 class="text-white mb-3"><i class="fas fa-th-large me-2"></i>Yörünge Rejimi Isı Haritası (Eğim × İrtifa)</h6>
+                <h6 class="text-white mb-3"><i class="fas fa-th-large me-2"></i>Yörünge Kümeleme Isı Haritası (Eğim × İrtifa)</h6>
                 <canvas id="regimeHeatmapChart" style="max-height: 320px;"></canvas>
+                <p class="small opacity-50 mt-2 mb-0">GMM, uyduları 5 yörünge kümesine ayırır; küme isimleri eğitim verisiyle belirlenir ve LEO/MEO/GEO gibi sabit bir kategoriye karşılık gelmez.</p>
             </div>
         </div>
 
@@ -267,7 +338,7 @@
                         <thead>
                             <tr>
                                 <th>Uydu & Sahibi</th>
-                                <th>Yörünge Rejimi</th>
+                                <th>Küme</th>
                                 <th>Görev Tahmini</th>
                                 <th>Sönümlenme Riski</th>
                                 <th>Güven</th>
@@ -351,12 +422,34 @@
     </div>
 
         <div id="maneuver-detection" class="content-section d-none animate__animated animate__fadeIn">
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
                 <h3 class="fw-light"><i class="fas fa-rocket text-warning me-2"></i>Manevra Tespiti</h3>
                 <button class="btn btn-outline-warning btn-sm" onclick="runManeuverDetection()">
                     <i class="fas fa-search me-2"></i>Tara
                 </button>
             </div>
+
+            <button class="explainer-toggle mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#mdet-explainer" aria-expanded="false">
+                <span><i class="fas fa-lightbulb me-2"></i>Bu sayfa ne anlatıyor?</span>
+                <i class="fas fa-chevron-down chevron"></i>
+            </button>
+            <div class="collapse explainer-body mb-4" id="mdet-explainer">
+                <ul class="small opacity-90 mb-0" style="line-height: 1.7;">
+                    <li><strong>Yöntem:</strong> Bir uydunun arşivlenmiş ardışık TLE'lerindeki mean orbital elementleri (yarı-büyük eksen, eğim, dış merkezlik) doğrudan karşılaştırılır — SGP4 (Simplified General Perturbations 4; TLE'lerden yörünge yayılımı için kullanılan standart analitik model) propagasyonu YAPILMADAN. Bu yaklaşım, saatler/günler arayla alınmış TLE çiftlerinde de güvenilir sonuç verir.</li>
+                    <li><strong>Δa, Δi, Δe:</strong> İki epoch arasındaki yarı-büyük eksen (semi-major axis), eğim (inklinasyon) ve dış merkezlik (eccentricity) farkı. Bu farklardan tanjantsal (irtifa yönünde) ve normal (yörünge düzlemine dik) ΔV bileşenleri, dairesel yörünge yaklaşımıyla türetilir; toplam ΔV bu iki bileşenin vektörel toplamıdır.</li>
+                    <li><strong>Tip:</strong> Hangi parametrenin kendi eşik değerini aştığına göre belirlenir:
+                        <ul class="mt-1">
+                            <li><strong>İrtifa Değişimi:</strong> Yalnızca Δa eşiğin (0.1 km) üzerinde.</li>
+                            <li><strong>Eğim Değişimi:</strong> Yalnızca Δi eşiğin (0.01°) üzerinde.</li>
+                            <li><strong>Eksantriklik Değişimi:</strong> Yalnızca Δe eşiğin (0.0001) üzerinde.</li>
+                            <li><strong>Kombine:</strong> Bu üç parametreden BİRDEN FAZLASI aynı anda kendi eşiğini aşmış — yani manevra tek bir eksende değil, birleşik bir yörünge değişikliği şeklinde gerçekleşmiş.</li>
+                            <li><strong>Yörünge Ayarı:</strong> Bağıl hız (ΔV) eşiği aşıldığı için manevra tespit edilmiş, ama Δa/Δi/Δe'nin hiçbiri tek başına kendi eşiğini aşmamış — küçük çaplı, ince bir düzeltme manevrası anlamına gelir.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Güven:</strong> Tespitin eşik değerlerine göre ne kadar net olduğu. Eşikler (Δa için 0.1 km, Δi için 0.01°, Δe için 0.0001, artık hız için 0.5 m/s) TLE fit gürültü mertebesine göre belirlenmiş mühendislik tahminleridir; akademik veya endüstriyel bir standarda dayanmaz (bkz. <code class="text-warning">KNOWN_LIMITATIONS.md</code>).</li>
+                </ul>
+            </div>
+
             <div class="card-glass">
                 <div class="card-header-glass">
                     <span><i class="fas fa-history me-2"></i>Tespit Edilen Manevralar</span>
@@ -367,12 +460,12 @@
                             <thead>
                                 <tr>
                                     <th>Uydu</th>
-                                    <th>Tip</th>
+                                    <th title="Hangi parametre eşiği aştığına göre sınıflandırılır: İrtifa/Eğim/Eksantriklik Değişimi (tek parametre), Kombine (birden fazla parametre eşzamanlı), Yörünge Ayarı (ΔV var ama tek parametre eşiği aşmadı)" data-bs-toggle="tooltip">Tip</th>
                                     <th>Epoch Önce → Sonra</th>
-                                    <th>Δa (km)</th>
-                                    <th>Δi (°)</th>
-                                    <th>Δe</th>
-                                    <th>Tahmini ΔV (m/s)</th>
+                                    <th title="Yarı-büyük eksen farkı (irtifa değişimi göstergesi)" data-bs-toggle="tooltip">Δa (km)</th>
+                                    <th title="Eğim (inklinasyon) farkı" data-bs-toggle="tooltip">Δi (°)</th>
+                                    <th title="Dış merkezlik (eccentricity) farkı" data-bs-toggle="tooltip">Δe</th>
+                                    <th title="Tanjantsal + normal ΔV bileşenlerinin vektörel toplamı" data-bs-toggle="tooltip">Tahmini ΔV (m/s)</th>
                                     <th>Güven</th>
                                 </tr>
                             </thead>
@@ -384,16 +477,46 @@
         </div>
 
         <div id="ground-scheduling" class="content-section d-none animate__animated animate__fadeIn">
-            <h3 class="mb-4 fw-light"><i class="fas fa-satellite-dish text-info me-2"></i>Yer İstasyonu Kapasite Planlama</h3>
+            <h3 class="mb-3 fw-light"><i class="fas fa-satellite-dish text-info me-2"></i>Yer İstasyonu Kapasite Planlama</h3>
 
-            <div class="row g-4 mb-2">
+            <button class="explainer-toggle mb-4" type="button" data-bs-toggle="collapse" data-bs-target="#gs-explainer" aria-expanded="false">
+                <span><i class="fas fa-lightbulb me-2"></i>Bu sayfa ne anlatıyor? (terimler ve ana bulgu)</span>
+                <i class="fas fa-chevron-down chevron"></i>
+            </button>
+            <div class="collapse explainer-body mb-4" id="gs-explainer">
+                <p class="small opacity-90">
+                    Büyüyen bir uydu filosunun (constellation), sınırlı sayıda yer istasyonuyla veri indirme kapasitesi yeterli mi?
+                    Bu panel, uydu sayısı arttıkça istasyonlarda çakışan geçişlerin ne kadarının kaybedildiğini ölçer ve
+                    kaybı azaltmak için kaç ek istasyon gerektiğini hesaplar.
+                </p>
+                <ul class="small opacity-90 mb-3" style="line-height: 1.7;">
+                    <li><strong>AOS / LOS:</strong> Bir uydunun, bir yer istasyonunun görüş açısına girdiği an (Acquisition of Signal) ile çıktığı an (Loss of Signal). Bu ikisi arasındaki süre "geçiş" (pass) olarak sayılır — istasyon sadece bu pencerede uyduyla veri alışverişi yapabilir.</li>
+                    <li><strong>Çakışma / Kaçırılan Geçiş:</strong> Bir istasyon aynı anda yalnızca tek bir uydudan veri indirebilir. İki uydunun geçişi aynı istasyonda üst üste binerse, geç gelen geçiş "kaçırılmış" sayılır.</li>
+                    <li><strong>Kapasite Kaybı:</strong> Kaçırılan geçişlerin toplam geçişe oranı — yüzde olarak, sistemin ne kadarının kullanılamadığını gösterir.</li>
+                    <li><strong>Greedy Arama:</strong> Her adımda, o ana kadarki en çok kaybı azaltan adayı seçen ve bu seçimi geri almayan bir optimizasyon stratejisi. Burada, %50 hedefine ulaşana kadar 12 adaylık istasyon havuzundan en iyi sırayla istasyon eklenmesini sağlar.</li>
+                    <li><strong>"%50 Kayıp Azaltmak İçin":</strong> Mevcut kaybı yarıya indirmek için greedy aramayla bulunan, eklenmesi gereken istasyon sayısı. <span class="text-warning">"Havuz Yetersiz"</span> demek, havuzdaki 12 adayın TAMAMI en iyi sırayla eklense bile hedefe ulaşılamadığı anlamına gelir.</li>
+                </ul>
+                <div class="alert alert-warning bg-opacity-10 border-warning small mb-0">
+                    <i class="fas fa-triangle-exclamation me-2"></i><strong>Ana Bulgu — Kutup İstasyonu Darboğazı:</strong>
+                    Güneş-senkron (SSO — Sun-Synchronous Orbit) yörüngeli uydular, kutup bölgesindeki istasyonlardan (örn. Svalbard) her turda görülür ve
+                    o istasyonun kuyruğunu hızla doldurur. Bu yüzden istasyon eklemek kapasiteyi otomatik artırmaz — yeni istasyon
+                    kutup bölgesindeyse kaybı azaltmak yerine <strong>artırabilir</strong>. Detaylı analiz repo'daki
+                    <code class="text-warning">KNOWN_LIMITATIONS.md</code> ve <code class="text-warning">RELEASE.md</code> dosyalarında.
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4">
                 <div class="col-lg-7">
                     <div class="card-glass h-100">
                         <div class="card-header-glass">
                             <span><i class="fas fa-map-marked-alt me-2"></i>İstasyon &amp; Uydu Görselleştirme</span>
                         </div>
                         <div class="card-body p-0">
-                            <div id="gs-map" style="height: 380px; border-radius: 0 0 12px 12px;"></div>
+                            <div id="gs-map" style="height: 360px; border-radius: 12px 12px 0 0;"></div>
+                        </div>
+                        <div class="card-body py-3 border-top border-secondary border-opacity-25">
+                            <span class="small opacity-75 me-4"><i class="fas fa-circle me-1" style="color:#00f3ff;"></i>Aday yer istasyonu (henüz kurulmamış, temsili konum)</span>
+                            <span class="small opacity-75"><i class="fas fa-circle me-1" style="color:#0aff60;"></i>Katalogdaki bir uydunun anlık konumu</span>
                         </div>
                     </div>
                 </div>
@@ -401,21 +524,31 @@
                     <div class="card-glass h-100">
                         <div class="card-header-glass">Senaryo Parametreleri</div>
                         <div class="card-body">
-                            <p class="small opacity-75">
-                                Constellation büyüklüğü arttıkça (büyüme hedefine paralel
-                                3 → 10 → 30 → 80 uydu), sınırlı istasyon kapasitesiyle çakışan geçişlerin
-                                ne kadarının kaybedildiğini ölçer.
+                            <p class="small opacity-75 mb-4">
+                                Bir kombinasyon seçip çalıştırın: kaç uydu, kaç istasyon, kaç saatlik bir pencerede simüle edilsin.
                             </p>
                             <div class="mb-3">
-                                <label class="form-label small">Uydu Sayısı</label>
+                                <label class="form-label small">
+                                    Uydu Sayısı
+                                    <i class="fas fa-circle-info ms-1 opacity-50" data-bs-toggle="tooltip"
+                                       title="Senaryoda kullanılacak uydu sayısı. 525km/97.5° SSO referans profiline en yakın gerçek Celestrak nesneleri seçilir"></i>
+                                </label>
                                 <input type="number" id="gs-num-satellites" class="form-control bg-dark text-white border-secondary" value="10" min="1">
                             </div>
                             <div class="mb-3">
-                                <label class="form-label small">İstasyon Sayısı</label>
+                                <label class="form-label small">
+                                    İstasyon Sayısı
+                                    <i class="fas fa-circle-info ms-1 opacity-50" data-bs-toggle="tooltip"
+                                       title="Aday istasyon havuzundan (Ankara dahil, 12 lokasyon) ilk N tanesi kullanılır."></i>
+                                </label>
                                 <input type="number" id="gs-num-stations" class="form-control bg-dark text-white border-secondary" value="1" min="1" max="12">
                             </div>
                             <div class="mb-3">
-                                <label class="form-label small">Süre (saat)</label>
+                                <label class="form-label small">
+                                    Süre (saat)
+                                    <i class="fas fa-circle-info ms-1 opacity-50" data-bs-toggle="tooltip"
+                                       title="Geçişlerin hesaplanacağı zaman penceresi. Varsayılan 24 saat, günlük operasyon döngüsünü temsil eder."></i>
+                                </label>
                                 <input type="number" id="gs-duration-hours" class="form-control bg-dark text-white border-secondary" value="24" min="1">
                             </div>
                             <button class="btn btn-outline-info w-100 py-2" onclick="runGroundScenario()">
@@ -426,33 +559,50 @@
                 </div>
             </div>
 
-            <div class="row g-4 mb-2">
+            <h6 class="text-uppercase small opacity-50 mb-3" style="letter-spacing: 1px;">Senaryo Sonuçları</h6>
+            <div class="row g-4">
                 <div class="col-md-3">
-                    <div class="card-glass p-3 text-center">
-                        <div class="small text-uppercase ls-1">Toplam Geçiş</div>
+                    <div class="card-glass p-3 text-center h-100">
+                        <div class="small text-uppercase ls-1">
+                            Toplam Geçiş
+                            <i class="fas fa-circle-info ms-1 opacity-50" data-bs-toggle="tooltip"
+                               title="Seçilen sürede, tüm uydu-istasyon çiftleri için oluşan AOS-LOS pencerelerinin (görüş hattı geçişlerinin) toplam sayısı."></i>
+                        </div>
                         <div class="h3 fw-bold text-white my-1" id="gs-total-passes">--</div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="card-glass p-3 text-center">
-                        <div class="small text-uppercase ls-1">Kaçırılan Geçiş</div>
+                    <div class="card-glass p-3 text-center h-100">
+                        <div class="small text-uppercase ls-1">
+                            Kaçırılan Geçiş
+                            <i class="fas fa-circle-info ms-1 opacity-50" data-bs-toggle="tooltip"
+                               title="İstasyon o anda başka bir uyduyla meşgul olduğu için indirilemeyen geçiş sayısı."></i>
+                        </div>
                         <div class="h3 fw-bold text-danger my-1" id="gs-missed-passes">--</div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="card-glass p-3 text-center">
-                        <div class="small text-uppercase ls-1">Kapasite Kaybı</div>
+                    <div class="card-glass p-3 text-center h-100">
+                        <div class="small text-uppercase ls-1">
+                            Kapasite Kaybı
+                            <i class="fas fa-circle-info ms-1 opacity-50" data-bs-toggle="tooltip"
+                               title="Kaçırılan Geçiş / Toplam Geçiş. Sistemin yüzde kaçının kullanılamadığını gösterir."></i>
+                        </div>
                         <div class="h3 fw-bold text-warning my-1" id="gs-loss-pct">--</div>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <div class="card-glass p-3 text-center">
-                        <div class="small text-uppercase ls-1">%50 Kayıp Azaltmak İçin</div>
+                    <div class="card-glass p-3 text-center h-100">
+                        <div class="small text-uppercase ls-1">
+                            %50 Kayıp Azaltmak İçin
+                            <i class="fas fa-circle-info ms-1 opacity-50" data-bs-toggle="tooltip"
+                               title="Mevcut kapasite kaybını yarıya indirmek için, 12 adaylık havuzdan en iyi sırayla eklenmesi gereken istasyon sayısı. 'Havuz Yetersiz' = havuzun tamamı denendi, hedefe ulaşılamadı."></i>
+                        </div>
                         <div class="h3 fw-bold text-success my-1" id="gs-extra-stations">--</div>
-                        <div class="small opacity-75" id="gs-extra-stations-note" style="font-size: 0.7rem;"></div>
                     </div>
                 </div>
             </div>
+            <div class="small opacity-75 mb-4 mt-2" id="gs-extra-stations-note"></div>
 
             <div class="card-glass">
                 <div class="card-header-glass d-flex justify-content-between align-items-center">
@@ -462,6 +612,10 @@
                     </button>
                 </div>
                 <div class="card-body">
+                    <p class="small opacity-50 mb-3">
+                        Büyüme hedefine paralel uydu sayıları (3 → 10 → 30 → 80) ile 1, 2 ve 3 istasyonlu
+                        kurulumların tamamını tarar; bu sayede "büyürken kaç istasyon yeterli olur?" sorusuna tek bakışta cevap verir.
+                    </p>
                     <canvas id="gsScenarioChart" style="max-height: 320px;"></canvas>
                     <div class="table-responsive mt-4">
                         <table class="table table-space table-hover align-middle mb-0">
@@ -469,14 +623,15 @@
                                 <tr>
                                     <th>Uydu Sayısı</th>
                                     <th>İstasyon Sayısı</th>
-                                    <th>Toplam Geçiş</th>
-                                    <th>Kaçırılan</th>
-                                    <th>Kapasite Kaybı</th>
-                                    <th>%50 Azaltmak İçin Ek İstasyon</th>
+                                    <th title="Toplam AOS-LOS penceresi sayısı" data-bs-toggle="tooltip">Toplam Geçiş</th>
+                                    <th title="İstasyon doluyken çakışıp kaybedilen geçiş sayısı" data-bs-toggle="tooltip">Kaçırılan</th>
+                                    <th title="Kaçırılan / Toplam" data-bs-toggle="tooltip">Kapasite Kaybı</th>
+                                    <th title="En iyi sırayla eklenmesi gereken ek istasyon sayısı" data-bs-toggle="tooltip">%50 Azaltmak İçin Ek İstasyon</th>
+                                    <th title="Greedy aramanın, kalan adaylar arasından kaybı en çok azaltana göre seçtiği istasyon sırası" data-bs-toggle="tooltip">Hangi İstasyonlar, Hangi Sırayla?</th>
                                 </tr>
                             </thead>
                             <tbody id="gs-scenario-table-body">
-                                <tr><td colspan="6" class="text-center opacity-50">Henüz bir senaryo çalıştırılmadı.</td></tr>
+                                <tr><td colspan="7" class="text-center opacity-50">Henüz bir senaryo çalıştırılmadı.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -491,14 +646,22 @@
                     <div class="col-auto ps-4">
                         <div class="d-flex align-items-center small">
                             <i class="fas fa-satellite-dish me-2 text-info opacity-75"></i>
-                            <span> <strong class="text-white" style="letter-spacing: 1px;"> &copy; 2025 ASTM Prototip </strong></span>
+                            <span> <strong class="text-white" style="letter-spacing: 1px;"> &copy; 2025-2026 ASTM Prototip </strong></span>
                         </div>
                     </div>
 
                     <div class="col-auto pe-4">
-                        <div class="font-mono small text-secondary opacity-75" style="font-size: 0.75rem;">
-                            <span class="me-3">Developed by <span class="text-white fw-bold">Şebnem Başak</span></span>
-                            <span class="border-start border-secondary ps-3" title="Versiyon">v1.4.0</span>
+                        <div class="font-mono small text-secondary opacity-75 d-flex align-items-center" style="font-size: 0.75rem;">
+                            <a href="https://github.com/sebnembasak/astm-prototype" target="_blank" rel="noopener"
+                               class="text-secondary me-3" title="GitHub Repository" data-bs-toggle="tooltip">
+                                <i class="fab fa-github fa-lg"></i>
+                            </a>
+                            <a href="https://www.linkedin.com/in/sebnembasak1" target="_blank" rel="noopener"
+                               class="text-secondary me-3" title="LinkedIn" data-bs-toggle="tooltip">
+                                <i class="fab fa-linkedin fa-lg"></i>
+                            </a>
+                            <span class="text-white fw-bold me-3">Şebnem Başak</span>
+                            <span class="border-start border-secondary ps-3" title="Sürüm" data-bs-toggle="tooltip">v2.0.0</span>
                         </div>
                     </div>
 
