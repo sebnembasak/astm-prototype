@@ -11,7 +11,10 @@ from backend.models.db import get_conn, init_db
 # URL yapısı: gp.php?GROUP=<istenen grup>&FORMAT=tle
 CELESTRAK_GROUPS = {
     "stations": "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle",
-    "visual":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=visual&FORMAT=tle",
+    # "active": tüm izlenen aktif uydular (~5.000 nesne). Çarpışma taramasını
+    # operasyonel ölçeğe taşır; KD-Tree optimizasyonunu gerçek anlamda gerektirir.
+    # "visual" grubunun yerini aldı — visual, active'in alt kümesiydi.
+    "active":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle",
     "debris":   "https://celestrak.org/NORAD/elements/gp.php?GROUP=debris&FORMAT=tle",
     # "resource" (Landsat/Sentinel/SCD tipi yer gözlem uyduları) ağırlıklı
     # olarak güneş-senkron (SSO) polar yörüngede; ground-scheduling senaryo
