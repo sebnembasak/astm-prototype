@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
 from datetime import datetime
 from service.conjunction_service import conjunction_service
 
@@ -44,10 +44,10 @@ async def run_screening():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/alerts", response_model=List[ConjunctionAlertSchema])
-async def get_latest_alerts(limit: int = 20, type: str = "COLLISION"):
+@router.get("/alerts")
+async def get_latest_alerts(limit: int = 50, type: str = "COLLISION", page: int = 1) -> Dict[str, Any]:
     """
-    Veritabanındaki uyarıları getirir.
-    type param: 'COLLISION' veya 'DOCKING'
+    Veritabanındaki uyarıları sayfalı getirir.
+    type: virgülle ayrılmış event_type listesi (COLLISION, FORMATION, GEO_NEIGHBOR, DOCKING)
     """
-    return conjunction_service.get_alerts(limit, event_type=type)
+    return conjunction_service.get_alerts(limit=limit, event_type=type, page=page)

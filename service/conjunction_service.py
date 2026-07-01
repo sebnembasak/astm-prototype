@@ -144,16 +144,22 @@ class ConjunctionService:
         # APIye dönülecek özet rapor
         return {"processed_pairs": len(candidate_pairs), "alerts_saved": saved_count}
 
-    def get_alerts(self, limit: int = 20, event_type: str = "COLLISION") -> List[Dict[str, Any]]:
+    def get_alerts(self, limit: int = 50, event_type: str = "COLLISION", page: int = 1) -> Dict[str, Any]:
         """
-        Veritabanından alarmları çeker. event_type virgülle ayrılmış birden fazla
-        tip içerebilir (örn. "FORMATION,GEO_NEIGHBOR") — Formasyon sekmesi her
-        ikisini de tek sorguda çekmek için bu özelliği kullanır.
+        Veritabanından alarmları sayfalı çeker. event_type virgülle ayrılmış
+        birden fazla tip içerebilir (örn. "FORMATION,GEO_NEIGHBOR").
         """
+        import math
         event_types = [t.strip() for t in event_type.split(",") if t.strip()]
         placeholders = ",".join("?" * len(event_types))
+        offset = (page - 1) * limit
         conn = get_conn()
         cur = conn.cursor()
+        cur.execute(
+            f"SELECT COUNT(*) FROM conjunction_alerts WHERE event_type IN ({placeholders})",
+            event_types,
+        )
+        total = cur.fetchone()[0]
         query = f"""
             SELECT
                 a.id, a.sat1_id, a.sat2_id, a.tca, a.miss_distance_km, a.rel_velocity_km_s, a.score, a.event_type, a.created_at,
@@ -163,12 +169,12 @@ class ConjunctionService:
             JOIN raw_tles s2 ON a.sat2_id = s2.id
             WHERE a.event_type IN ({placeholders})
             ORDER BY a.score DESC, a.tca ASC
-            LIMIT ?
+            LIMIT ? OFFSET ?
         """
-        cur.execute(query, (*event_types, limit))
-        rows = cur.fetchall()
+        cur.execute(query, (*event_types, limit, offset))
+        items = [dict(row) for row in cur.fetchall()]
         conn.close()
-        return [dict(row) for row in rows]
+        return {"items": items, "total": total, "page": page, "limit": limit, "pages": math.ceil(total / limit) if limit else 1}
 
 
 # Singleton instance (Servis tek bir örnek olarak başlatılır)

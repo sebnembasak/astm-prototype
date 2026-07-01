@@ -74,30 +74,33 @@ class ManeuverDetectionService:
         conn.close()
         return new_count
 
-    def get_maneuver_events(self, sat_id: Optional[int] = None, limit: int = 50) -> List[Dict[str, Any]]:
-        """maneuver_events tablosundan, opsiyonel norad_id filtresiyle, epoch_after DESC sıralı döner."""
+    def get_maneuver_events(self, sat_id: Optional[int] = None, limit: int = 50, page: int = 1) -> Dict[str, Any]:
+        """maneuver_events tablosundan sayfalı döner; opsiyonel norad_id filtresi."""
+        import math
+        offset = (page - 1) * limit
         conn = get_conn()
         cur = conn.cursor()
 
         if sat_id is not None:
             sat = tle_service.get_satellite_by_id(sat_id)
             norad_id = sat["norad_id"] if sat else None
-            cur.execute("""
-                SELECT * FROM maneuver_events
-                WHERE norad_id = ?
-                ORDER BY epoch_after DESC
-                LIMIT ?
-            """, (norad_id, limit))
+            cur.execute("SELECT COUNT(*) FROM maneuver_events WHERE norad_id = ?", (norad_id,))
+            total = cur.fetchone()[0]
+            cur.execute(
+                "SELECT * FROM maneuver_events WHERE norad_id = ? ORDER BY epoch_after DESC LIMIT ? OFFSET ?",
+                (norad_id, limit, offset),
+            )
         else:
-            cur.execute("""
-                SELECT * FROM maneuver_events
-                ORDER BY epoch_after DESC
-                LIMIT ?
-            """, (limit,))
+            cur.execute("SELECT COUNT(*) FROM maneuver_events")
+            total = cur.fetchone()[0]
+            cur.execute(
+                "SELECT * FROM maneuver_events ORDER BY epoch_after DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            )
 
-        rows = [dict(row) for row in cur.fetchall()]
+        items = [dict(row) for row in cur.fetchall()]
         conn.close()
-        return rows
+        return {"items": items, "total": total, "page": page, "limit": limit, "pages": math.ceil(total / limit) if limit else 1}
 
 
 # Singleton instance

@@ -13,6 +13,17 @@ class SatelliteSchema(BaseModel):
     source: Optional[str]
 
 
+class PageMeta(BaseModel):
+    total: int
+    page: int
+    limit: int
+    pages: int
+
+
+class SatellitePageResponse(PageMeta):
+    items: List[SatelliteSchema]
+
+
 class TLEUpdateResponse(BaseModel):
     message: str
     count: int
@@ -39,10 +50,10 @@ async def refresh_tles():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/list", response_model=List[SatelliteSchema])
-async def list_satellites(limit: int = 100):
-    """Sistemdeki uyduları listeler."""
-    return tle_service.get_all_satellites(limit)
+@router.get("/list", response_model=SatellitePageResponse)
+async def list_satellites(page: int = 1, limit: int = 50):
+    """Sistemdeki uyduları sayfalı listeler."""
+    return tle_service.get_all_satellites(limit=limit, page=page)
 
 
 @router.get("/count")
@@ -52,11 +63,10 @@ async def get_satellite_count():
     return {"count": count}
 
 
-@router.get("/search", response_model=List[SatelliteSchema])
-async def search_satellites(q: str = Query(..., min_length=2)):
-    """Uydu ismine göre arama yapar."""
-    results = tle_service.search_satellites(q)
-    return results
+@router.get("/search", response_model=SatellitePageResponse)
+async def search_satellites(q: str = Query(..., min_length=2), page: int = 1, limit: int = 50):
+    """Uydu ismine göre arama yapar, sayfalı döner."""
+    return tle_service.search_satellites(q, limit=limit, page=page)
 
 
 @router.get("/history/{sat_id}", response_model=List[TLEHistoryEntrySchema])

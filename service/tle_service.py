@@ -18,17 +18,21 @@ class TleService:
         count = fetch_and_store()
         return count
 
-    def get_all_satellites(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """Kayıtlı uyduların listesini döner."""
+    def get_all_satellites(self, limit: int = 50, page: int = 1) -> Dict[str, Any]:
+        """Kayıtlı uyduların sayfalı listesini döner."""
+        offset = (page - 1) * limit
         conn = get_conn()
         cur = conn.cursor()
-
-        query = "SELECT id, sat_name, epoch, source, fetched_at, line1, line2 FROM raw_tles ORDER BY sat_name LIMIT ?"
-
-        cur.execute(query, (limit,))
-        rows = cur.fetchall()
+        cur.execute("SELECT COUNT(*) FROM raw_tles")
+        total = cur.fetchone()[0]
+        cur.execute(
+            "SELECT id, sat_name, epoch, source, fetched_at, line1, line2 FROM raw_tles ORDER BY sat_name LIMIT ? OFFSET ?",
+            (limit, offset),
+        )
+        items = [dict(row) for row in cur.fetchall()]
         conn.close()
-        return [dict(row) for row in rows]
+        import math
+        return {"items": items, "total": total, "page": page, "limit": limit, "pages": math.ceil(total / limit) if limit else 1}
 
     def get_satellites_by_orbit_profile(
             self,
@@ -88,22 +92,21 @@ class TleService:
         finally:
             conn.close()
 
-    def search_satellites(self, query: str) -> List[Dict[str, Any]]:
-        """İsme göre uydu arar"""
+    def search_satellites(self, query: str, limit: int = 50, page: int = 1) -> Dict[str, Any]:
+        """İsme göre uydu arar, sayfalı döner."""
+        import math
+        offset = (page - 1) * limit
         conn = get_conn()
         cur = conn.cursor()
-
-        sql = """
-            SELECT id, sat_name, line1, line2, epoch, source 
-            FROM raw_tles 
-            WHERE sat_name LIKE ? 
-            LIMIT 50
-        """
-
-        cur.execute(sql, (f"%{query}%",))
-        rows = cur.fetchall()
+        cur.execute("SELECT COUNT(*) FROM raw_tles WHERE sat_name LIKE ?", (f"%{query}%",))
+        total = cur.fetchone()[0]
+        cur.execute(
+            "SELECT id, sat_name, line1, line2, epoch, source FROM raw_tles WHERE sat_name LIKE ? LIMIT ? OFFSET ?",
+            (f"%{query}%", limit, offset),
+        )
+        items = [dict(row) for row in cur.fetchall()]
         conn.close()
-        return [dict(row) for row in rows]
+        return {"items": items, "total": total, "page": page, "limit": limit, "pages": math.ceil(total / limit) if limit else 1}
 
     def get_satellite_by_id(self, sat_id: int) -> Optional[Dict[str, Any]]:
         """ID'ye göre tek bir uydu verisini döner."""

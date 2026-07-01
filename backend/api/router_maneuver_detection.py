@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 from service.maneuver_detection_service import maneuver_detection_service
 
 router = APIRouter(prefix="/maneuver-detection", tags=["Maneuver Detection"])
@@ -21,7 +21,7 @@ async def run_detection():
     return {"status": "completed", "new_events": new_count}
 
 
-@router.get("/events", response_model=List[Dict[str, Any]])
-async def get_events(limit: int = 50, sat_id: Optional[int] = None):
-    """Tespit edilen manevra olaylarını (epoch_after DESC) döner."""
-    return maneuver_detection_service.get_maneuver_events(sat_id, limit)
+@router.get("/events")
+async def get_events(limit: int = 50, page: int = 1, sat_id: Optional[int] = None) -> Dict[str, Any]:
+    """Tespit edilen manevra olaylarını sayfalı döner (epoch_after DESC)."""
+    return maneuver_detection_service.get_maneuver_events(sat_id, limit=limit, page=page)

@@ -1,5 +1,54 @@
         const API_BASE = "http://localhost:8000";
 
+        // ── Sayfalama yardımcısı ──────────────────────────────────────────────
+        // Her sayfa kendi state'ini tutar; backend'e page numarası gönderilir.
+        const PAGE_LIMIT = 50; // her sayfada gösterilecek kayıt sayısı
+
+        let satCurrentPage    = 1;
+        let alertCurrentPage  = 1;
+        let maneuverCurrentPage = 1;
+
+        /**
+         * containerId altına Bootstrap pagination bileşeni render eder.
+         * @param {string} containerId  - pagination div ID'si
+         * @param {number} page         - aktif sayfa (1-based)
+         * @param {number} pages        - toplam sayfa sayısı
+         * @param {number} total        - toplam kayıt sayısı
+         * @param {function} onPage     - (newPage: number) => void
+         */
+        function renderPagination(containerId, page, pages, total, onPage) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            if (pages <= 1) { el.innerHTML = `<small class="text-secondary">${total} kayıt</small>`; return; }
+
+            // Gösterilecek sayfa numaraları: her zaman ilk, son ve aktif etrafında ±2
+            const visible = new Set([1, pages]);
+            for (let i = Math.max(1, page - 2); i <= Math.min(pages, page + 2); i++) visible.add(i);
+            const sorted = [...visible].sort((a, b) => a - b);
+
+            let btns = '';
+            let prev = 0;
+            for (const p of sorted) {
+                if (prev && p - prev > 1) btns += `<li class="page-item disabled"><span class="page-link bg-transparent text-secondary border-0">…</span></li>`;
+                const active = p === page ? 'active' : '';
+                btns += `<li class="page-item ${active}"><button class="page-link bg-dark text-white border-secondary" onclick="(${onPage})(${p})">${p}</button></li>`;
+                prev = p;
+            }
+
+            el.innerHTML = `
+                <small class="text-secondary">${total} kayıt · sayfa ${page}/${pages}</small>
+                <nav><ul class="pagination pagination-sm mb-0">
+                    <li class="page-item ${page === 1 ? 'disabled' : ''}">
+                        <button class="page-link bg-dark text-white border-secondary" onclick="(${onPage})(${page - 1})">‹</button>
+                    </li>
+                    ${btns}
+                    <li class="page-item ${page === pages ? 'disabled' : ''}">
+                        <button class="page-link bg-dark text-white border-secondary" onclick="(${onPage})(${page + 1})">›</button>
+                    </li>
+                </ul></nav>
+            `;
+        }
+
         const NEON_COLORS = [
             '#00f3ff',
             '#bc13fe',
@@ -426,11 +475,19 @@ const CLUSTER_COLORS = {
             }
         }
 
-        async function loadSatellites() {
+        let _satSearchQuery = '';
+
+        async function loadSatellites(page = 1) {
+            satCurrentPage = page;
             try {
-                const res = await fetch(`${API_BASE}/tle/list?limit=50`);
+                const url = _satSearchQuery.length >= 2
+                    ? `${API_BASE}/tle/search?q=${encodeURIComponent(_satSearchQuery)}&page=${page}&limit=${PAGE_LIMIT}`
+                    : `${API_BASE}/tle/list?page=${page}&limit=${PAGE_LIMIT}`;
+                const res = await fetch(url);
                 const data = await res.json();
-                renderSatTable(data);
+                renderSatTable(data.items);
+                renderPagination('sat-pagination', data.page, data.pages, data.total,
+                    function(p) { loadSatellites(p); });
             } catch (e) {
                 console.error("Liste yüklenirken hata:", e);
                 document.getElementById('sat-table-body').innerHTML = `<tr><td colspan="4" class="text-danger">Veri yüklenemedi! API çalışıyor mu?</td></tr>`;
@@ -438,25 +495,18 @@ const CLUSTER_COLORS = {
         }
 
         async function searchSatellitesForList() {
-            const query = document.getElementById('sat-list-search').value;
-            if(query.length < 2) return;
-            try {
-                const res = await fetch(`${API_BASE}/tle/search?q=${query}`);
-                const data = await res.json();
-                renderSatTable(data);
-            } catch (e) {
-                console.error(e);
-            }
+            _satSearchQuery = document.getElementById('sat-list-search').value;
+            loadSatellites(1);
         }
 
-        function renderSatTable(data) {
+        function renderSatTable(items) {
             const tbody = document.getElementById('sat-table-body');
             tbody.innerHTML = "";
-            if(data.length === 0) {
+            if (!items || items.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="text-center">Kayıt bulunamadı.</td></tr>`;
                 return;
             }
-            data.forEach(s => {
+            items.forEach(s => {
                 tbody.innerHTML += `
                     <tr>
                         <td class="font-mono small">${s.id}</td>
@@ -481,6 +531,7 @@ const CLUSTER_COLORS = {
         let currentAlertType = "COLLISION";
 
         function switchAlertType(type) {
+            alertCurrentPage = 1;
             currentAlertType = type;
             const card = document.getElementById('conj-card');
             const headerText = document.getElementById('conj-header-text');
@@ -501,18 +552,22 @@ const CLUSTER_COLORS = {
             loadAlerts();
         }
 
-        async function loadAlerts() {
+        async function loadAlerts(page = alertCurrentPage) {
+            alertCurrentPage = page;
             try {
                 // Formasyon sekmesi hem FORMATION hem GEO_NEIGHBOR kayıtlarını gösterir.
                 const fetchType = currentAlertType === 'FORMATION'
                     ? 'FORMATION,GEO_NEIGHBOR'
                     : currentAlertType;
-                const res = await fetch(`${API_BASE}/conjunctions/alerts?limit=100&type=${encodeURIComponent(fetchType)}`);
-                const data = await res.json();
+                const res = await fetch(`${API_BASE}/conjunctions/alerts?limit=${PAGE_LIMIT}&page=${page}&type=${encodeURIComponent(fetchType)}`);
+                const resp = await res.json();
+                const data = resp.items;
+                renderPagination('conj-pagination', resp.page, resp.pages, resp.total,
+                    function(p) { loadAlerts(p); });
                 const tbody = document.getElementById('conj-table-body');
                 tbody.innerHTML = "";
 
-                if(data.length === 0) {
+                if (!data || data.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3">Bu kategoride kayıt bulunamadı.</td></tr>`;
                     return;
                 }
@@ -644,9 +699,9 @@ async function calculateManeuver() {
 
         async function loadDashboardStats() {
             try {
-                const maneuverRes = await fetch(`${API_BASE}/maneuver-detection/events?limit=10000`);
-                const maneuverEvents = await maneuverRes.json();
-                document.getElementById('stat-maneuver-count').innerText = maneuverEvents.length.toLocaleString();
+                const maneuverRes = await fetch(`${API_BASE}/maneuver-detection/events?limit=1&page=1`);
+                const maneuverData = await maneuverRes.json();
+                document.getElementById('stat-maneuver-count').innerText = (maneuverData.total ?? 0).toLocaleString();
             } catch(e) {
                 document.getElementById('stat-maneuver-count').innerText = "--";
             }
@@ -660,8 +715,9 @@ async function calculateManeuver() {
             }
 
             try {
-                const resAlert = await fetch(`${API_BASE}/conjunctions/alerts?limit=5`);
-                const alerts = await resAlert.json();
+                const resAlert = await fetch(`${API_BASE}/conjunctions/alerts?limit=5&page=1`);
+                const alertResp = await resAlert.json();
+                const alerts = alertResp.items ?? [];
                 document.getElementById('stat-alert-count').innerText = alerts.length;
 
                 const tbody = document.getElementById('dashboard-alerts-body');
@@ -725,14 +781,18 @@ async function calculateManeuver() {
         COMBINED: { class: '', label: 'Kombine', style: 'background-color: var(--accent-magenta);' }
     };
 
-    async function loadManeuverEvents() {
+    async function loadManeuverEvents(page = maneuverCurrentPage) {
+        maneuverCurrentPage = page;
         const tbody = document.getElementById('maneuver-events-body');
         try {
-            const res = await fetch(`${API_BASE}/maneuver-detection/events?limit=100`);
-            const data = await res.json();
+            const res = await fetch(`${API_BASE}/maneuver-detection/events?limit=${PAGE_LIMIT}&page=${page}`);
+            const resp = await res.json();
+            const data = resp.items;
+            renderPagination('maneuver-pagination', resp.page, resp.pages, resp.total,
+                function(p) { loadManeuverEvents(p); });
             tbody.innerHTML = "";
 
-            if(data.length === 0) {
+            if (!data || data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="text-center py-3">Tespit edilen manevra yok.</td></tr>`;
                 return;
             }
