@@ -46,6 +46,7 @@ MAX_ADDITIONAL_STATIONS_SEARCH = 10
 # Operatör merkezi Ankara kabul edildiği için ilk istasyon Ankara.
 CANDIDATE_GROUND_STATIONS = [
     {"name": "Ankara", "lat_deg": 39.93, "lon_deg": 32.86},
+    {"name": "Konya",  "lat_deg": 37.87, "lon_deg": 32.49},
     {"name": "Svalbard", "lat_deg": 78.23, "lon_deg": 15.39},
     {"name": "Punta Arenas", "lat_deg": -53.16, "lon_deg": -70.91},
     {"name": "Singapore", "lat_deg": 1.35, "lon_deg": 103.82},

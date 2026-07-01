@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from pathlib import Path
 
 from backend.api import router_conjunctions, router_ground_scheduling, router_maneuver, router_maneuver_detection, \
-    router_tle, router_propagate, router_ssa
+    router_tle, router_propagate, router_ssa, router_maintenance
 from backend.models.db import init_db
 
 # Uygulama başladığında DByi kur
@@ -38,6 +38,7 @@ app.include_router(router_maneuver_detection.router)
 app.include_router(router_propagate.router)
 app.include_router(router_ssa.router)
 app.include_router(router_ground_scheduling.router)
+app.include_router(router_maintenance.router)
 
 # Statik dosyaları kök dizinine göre ayarla
 app.mount("/assets", StaticFiles(directory="dashboard/assets"), name="assets")
