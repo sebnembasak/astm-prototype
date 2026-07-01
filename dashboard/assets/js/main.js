@@ -440,14 +440,18 @@ const CLUSTER_COLORS = {
             const card = document.getElementById('conj-card');
             const headerText = document.getElementById('conj-header-text');
 
-            if(type === 'COLLISION') {
+            if (type === 'COLLISION') {
                 card.className = "card-glass border-danger border-opacity-25";
                 headerText.className = "card-header-glass text-danger";
                 headerText.innerHTML = '<span><i class="fas fa-exclamation-triangle me-2"></i>Kritik Yakınlaşmalar</span>';
+            } else if (type === 'FORMATION') {
+                card.className = "card-glass border-warning border-opacity-25";
+                headerText.className = "card-header-glass text-warning";
+                headerText.innerHTML = '<span><i class="fas fa-circle-nodes me-2"></i>Formasyon Uçuşu — Eş Yörüngeli Nesneler</span>';
             } else {
                 card.className = "card-glass border-info border-opacity-25";
                 headerText.className = "card-header-glass text-info";
-                headerText.innerHTML = '<span><i class="fas fa-link me-2"></i>Tespit Edilen Formasyon/Docking</span>';
+                headerText.innerHTML = '<span><i class="fas fa-link me-2"></i>Tespit Edilen Kenetlenme</span>';
             }
             loadAlerts();
         }
@@ -465,35 +469,41 @@ const CLUSTER_COLORS = {
                 }
 
                 data.forEach(a => {
-                    let badgeClass = 'bg-danger';
+                    let badgeClass, badgeLabel, distClass, actionButtons;
+
                     if (a.event_type === 'DOCKING') {
                         badgeClass = 'bg-info text-dark';
-                    } else if (a.score < 0.4) {
-                        badgeClass = 'bg-success';
-                    } else if (a.score < 0.8) {
+                        badgeLabel = 'KENETLENME';
+                        distClass  = 'text-info';
+                        actionButtons = `<button class="btn btn-sm btn-outline-info" onclick="visualizeConjunction(${a.sat1_id}, '${a.sat1_name}', ${a.sat2_id}, '${a.sat2_name}', '${a.tca}')"><i class="fas fa-eye me-1"></i> İzle</button>`;
+                    } else if (a.event_type === 'FORMATION') {
                         badgeClass = 'bg-warning text-dark';
-                    }
-
-                    const actionButtons = a.event_type === 'DOCKING'
-                        ? `<button class="btn btn-sm btn-outline-info" onclick="visualizeConjunction(${a.sat1_id}, '${a.sat1_name}', ${a.sat2_id}, '${a.sat2_name}', '${a.tca}')"><i class="fas fa-eye me-1"></i> İzle</button>`
-                        : `<div class="btn-group">
+                        badgeLabel = 'FORMASYON';
+                        distClass  = 'text-warning';
+                        actionButtons = `<button class="btn btn-sm btn-outline-warning" onclick="visualizeConjunction(${a.sat1_id}, '${a.sat1_name}', ${a.sat2_id}, '${a.sat2_name}', '${a.tca}')"><i class="fas fa-eye me-1"></i> İzle</button>`;
+                    } else {
+                        badgeClass = a.score >= 0.8 ? 'bg-danger' : (a.score >= 0.4 ? 'bg-warning text-dark' : 'bg-success');
+                        badgeLabel = (a.score * 100).toFixed(0) + '%';
+                        distClass  = 'text-danger';
+                        actionButtons = `<div class="btn-group">
                                 <button class="btn btn-sm btn-outline-info" onclick="visualizeConjunction(${a.sat1_id}, '${a.sat1_name}', ${a.sat2_id}, '${a.sat2_name}', '${a.tca}')"><i class="fas fa-eye"></i></button>
                                 <button class="btn btn-sm btn-outline-warning" onclick='openManeuverModal(${JSON.stringify(a)})'><i class="fas fa-tools"></i></button>
                            </div>`;
+                    }
 
                     tbody.innerHTML += `
                         <tr class="animate__animated animate__fadeIn">
-                            <td><span class="badge ${badgeClass}">${a.event_type === 'DOCKING' ? 'FORMASYON' : (a.score * 100).toFixed(0) + '%'}</span></td>
+                            <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
                             <td>
                                 <div class="fw-bold">${a.sat1_name}</div>
                                 <div class="small font-mono">${a.sat1_id}</div>
                             </td>
                             <td>
                                 <div class="fw-bold">${a.sat2_name}</div>
-                                <div class="small  font-mono">${a.sat2_id}</div>
+                                <div class="small font-mono">${a.sat2_id}</div>
                             </td>
                             <td class="font-mono small">${new Date(a.tca).toLocaleString()}</td>
-                            <td class="fw-bold ${a.event_type === 'DOCKING' ? 'text-info' : 'text-danger'} font-mono">${a.miss_distance_km.toFixed(4)} km</td>
+                            <td class="fw-bold ${distClass} font-mono">${a.miss_distance_km.toFixed(4)} km</td>
                             <td>${actionButtons}</td>
                         </tr>
                     `;

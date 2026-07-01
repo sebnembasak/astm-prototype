@@ -190,8 +190,11 @@
                     <input type="radio" class="btn-check" name="alertType" id="btnRadioCollision" autocomplete="off" checked onclick="switchAlertType('COLLISION')">
                     <label class="btn btn-outline-danger" for="btnRadioCollision"><i class="fas fa-radiation me-2"></i>Riskler</label>
 
+                    <input type="radio" class="btn-check" name="alertType" id="btnRadioFormation" autocomplete="off" onclick="switchAlertType('FORMATION')">
+                    <label class="btn btn-outline-warning" for="btnRadioFormation"><i class="fas fa-circle-nodes me-2"></i>Formasyon</label>
+
                     <input type="radio" class="btn-check" name="alertType" id="btnRadioDocking" autocomplete="off" onclick="switchAlertType('DOCKING')">
-                    <label class="btn btn-outline-info" for="btnRadioDocking"><i class="fas fa-link me-2"></i>Kenetlenme & Formasyon</label>
+                    <label class="btn btn-outline-info" for="btnRadioDocking"><i class="fas fa-link me-2"></i>Kenetlenme</label>
                 </div>
 
                 <button class="btn btn-success btn-sm ms-2" onclick="loadAlerts()"><i class="fas fa-redo me-2"></i>Yenile</button>
@@ -207,7 +210,8 @@
                     <li><strong>TCA (Time of Closest Approach):</strong> İki nesnenin birbirine en yakın olacağı, SGP4 (Simplified General Perturbations 4) yörünge yayılımıyla hesaplanan an.</li>
                     <li><strong>Miss Distance:</strong> TCA anındaki tahmini en kısa mesafe (km).</li>
                     <li><strong>Risk (%):</strong> Mesafeye dayalı bir skor — 10 km'nin altı %100 (kritik), 75 km'nin üstü %0 olacak şekilde lineer ölçeklenir. <strong>Bu, gerçek bir çarpışma olasılığı (Pc — probability of collision) değildir</strong>, basitleştirilmiş bir mesafe göstergesidir; tam bir Pc hesabı nesnelerin konum kovaryans matrislerini gerektirir.</li>
-                    <li><strong>Kenetlenme & Formasyon (DOCKING):</strong> Mesafe &lt;1km VE bağıl hız &lt;10 m/s ise sistem bunu çarpışma değil, kenetli/formasyon uçuşu (örn. ISS/CSS modülleri) olarak sınıflandırır.</li>
+                    <li><strong>Kenetlenme (DOCKING):</strong> Mesafe &lt;5 km VE bağıl hız &lt;50 m/s — fiziksel temas veya randevu (örn. ISS/CSS modülleri). TLE doğruluk sınırı ~1–2 km olduğundan eşik 5 km'ye ayarlanmıştır.</li>
+                    <li><strong>Formasyon (FORMATION):</strong> Mesafe 5–15 km VE bağıl hız &lt;50 m/s — aynı konstellasyondan eş yörüngeli uydular (Planet Flock, Spire LEMUR, GEO komşular vb.). Gerçek çarpışma riski ihmal edilebilir düzeydedir; bu nesneler aynı yörünge düzleminde faz farkıyla uçmaktadır. Profesyonel SSA sistemlerinde bu kategori "false alarm" gürültüsünü çarpışma alarmlarından ayırmak için ayrı tutulur.</li>
                 </ul>
                 <div class="alert alert-warning bg-opacity-10 border-warning small mb-0">
                     <i class="fas fa-triangle-exclamation me-2"></i><strong>Bilinen sınırlama:</strong> Aynı uzay istasyonunun farklı modülleri (örn. CSS bileşenleri) arasında bazen yüksek risk skoru (%100) görülebilir. Bu genelde gerçek bir tehlike değil — modüllerin TLE'leri farklı zamanlarda (epoch) güncellenmiş olabilir, gösterilen mesafe bu epoch farkının SGP4 ekstrapolasyon artefaktıdır. Yüksek riskli bir çift aynı istasyona aitse, önce ilgili TLE'lerin epoch'larının yakın olup olmadığını kontrol edin. Detay: <code class="text-warning">KNOWN_LIMITATIONS.md</code> → "Kenetli Nesnelerde Epoch Tutarsızlığı Artefaktı".

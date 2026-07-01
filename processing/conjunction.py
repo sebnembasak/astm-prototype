@@ -138,17 +138,28 @@ def compute_conjunction_for_pair(satrec1, satrec2, ref_epoch, r1, v1, r2, v2, pr
             normalized_score = max(0.0, min(1.0, normalized_score))
 
         # DOCKING (Kenetlenme) Analizi
-        # Kenetlenmiş veya formasyon uçuşu yapan nesneleri COLLISION'dan ayırt etmek için:
-        # Kriter: Mesafe < 5 km VE Bağıl Hız < 50 m/s (0.05 km/s)
-        # 5 km eşiği: TLE doğruluk sınırı ~1-2 km; kenetlenmiş modüller TLE hatasından
-        # dolayı 1-2 km ayrı görünebilir (örn. CYGNUS NG-24 ↔ ISS kompleksi = 1.21 km).
-        is_docking = (miss_refined < 5.0) and (rel_vel < 0.05)
-        final_event_type = "DOCKING" if is_docking else "COLLISION"
+        # Üç kategori — bağıl hız (rel_vel) birincil ayraç:
+        #
+        # DOCKING   : miss < 5 km  VE vel < 0.05 km/s
+        #             Fiziksel temas / randevu (ISS, CSS modülleri).
+        #             TLE doğruluk sınırı ~1-2 km olduğundan 5 km eşiği gerekli.
+        #
+        # FORMATION : miss < 15 km VE vel < 0.05 km/s (docking değil)
+        #             Aynı konstellasyondan eş yörüngeli uydular (Planet Flock,
+        #             LEMUR, GEO komşular). Gerçek çarpışma riski ihmal edilebilir;
+        #             ancak katalogda ayrı bir kategori olarak tutulur.
+        #
+        # COLLISION : diğer her şey — farklı yörüngelerden rastlantısal karşılaşma.
+        is_docking   = (miss_refined <  5.0) and (rel_vel < 0.05)
+        is_formation = (miss_refined < 15.0) and (rel_vel < 0.05) and not is_docking
 
-        # Eğer docking ise risk skoru teknik olarak yüksek (çok yakınlar)
-        # ama tipi farklı olduğu için alarmları kapatabiliriz.
         if is_docking:
+            final_event_type = "DOCKING"
             normalized_score = 1.0
+        elif is_formation:
+            final_event_type = "FORMATION"
+        else:
+            final_event_type = "COLLISION"
 
         return Conjunction(
             sat1=getattr(satrec1, 'satnum', -1),

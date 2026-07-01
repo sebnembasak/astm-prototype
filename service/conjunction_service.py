@@ -109,8 +109,7 @@ class ConjunctionService:
 
             # Sonuçların Kaydedilmesi (Persistence)
             should_save = False
-            # DOCKING: Kenetlenme manevralarını kaydet (arayüzde ayrı bölümü açıldığı için)
-            if conj.event_type == "DOCKING":
+            if conj.event_type in ("DOCKING", "FORMATION"):
                 should_save = True
             elif conj.event_type == "COLLISION":
                 # Score > 0 demek belirli bir risk var demek
