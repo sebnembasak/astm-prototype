@@ -47,6 +47,9 @@
         <div class="nav-item" onclick="showSection('ground-scheduling', this)">
             <i class="fas fa-satellite-dish"></i> Yer İstasyonu Planlama
         </div>
+        <div class="nav-item" onclick="showSection('maintenance-analysis', this)">
+            <i class="fas fa-wrench"></i> Bakım Etki Analizi
+        </div>
 
     </div>
 
@@ -638,6 +641,211 @@
                 </div>
             </div>
         </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             BAKIM ETKİ ANALİZİ
+        ════════════════════════════════════════════════════════════════ -->
+        <div id="maintenance-analysis" class="content-section d-none animate__animated animate__fadeIn">
+            <h3 class="mb-2 fw-light"><i class="fas fa-wrench text-warning me-2"></i>Bakım Etki Analizi</h3>
+
+            <button class="explainer-toggle mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#maint-explainer" aria-expanded="false">
+                <span><i class="fas fa-lightbulb me-2"></i>Bu sayfa ne anlatıyor?</span>
+                <i class="fas fa-chevron-down chevron"></i>
+            </button>
+            <div class="collapse explainer-body mb-4" id="maint-explainer">
+                <ul class="small opacity-90 mb-0" style="line-height: 1.7;">
+                    <li><strong>Amaç:</strong> Bir yer istasyonunda planlanan bakım çalışması (anten söküm, yazılım güncellemesi vb.) hangi uydu geçişlerini kaybettirir?
+                        Sistem, 7 günlük ufku 30 dakikalık adımlarla tarayarak her olası bakım zaman aralığının "operasyonel maliyetini" hesaplar.</li>
+                    <li><strong>Maliyet Puanı:</strong> Kayıp geçişlerin <code>süre × uydu ağırlığı</code> toplamıdır. Uydu ağırlığı, TLE'deki B* sürükleme terimi ve
+                        yörünge yüksekliğinden türetilen tahmini yörünge ömrüne bağlıdır: &lt;180 gün → 3.0, 180–365 gün → 2.0, &gt;365 gün → 1.0.</li>
+                    <li><strong>B* Regresyonu:</strong> B* (atmosferik sürükleme katsayısı) tek bir TLE anlık görüntüsünden değil, <code>tle_history</code> tablosundaki
+                        geçmiş kayıtlara doğrusal regresyon uygulanarak hesaplanır. B*'ın zamanla yükselme trendi, uydunun tahmin edilenden daha hızlı
+                        bozunduğunu gösterir; bu durum ağırlığı artırır ve o uyduyla ilgili geçiş pencerelerine daha yüksek öncelik tanır.
+                        En az 3 geçmiş kayıt bulunan uydularda regresyon devreye girer; yetersiz geçmiş varsa mevcut TLE anlık değeri kullanılır.</li>
+                    <li><strong>En İyi Zaman Aralıkları:</strong> Bakımı burada yapın — kaybedilen geçiş sayısı ve toplam ağırlıklı temas süresi en düşük.</li>
+                    <li><strong>En Kötü Zaman Aralıkları:</strong> Bu saatlerde anten çevrimdışı olmaz — çok sayıda yüksek öncelikli geçiş kaybedilir.</li>
+                    <li><strong>Uydu Ağırlık Detayları:</strong> Sonuçların altındaki tabloda her uydunun etkin B* değeri, tahmini ömrü, ağırlığı ve B* kaynağı
+                        (regresyon mu, anlık TLE mi) görülebilir.</li>
+                </ul>
+            </div>
+
+            <div class="row g-4">
+
+                <!-- ── FORM (Sol) ─────────────────────────────────────────── -->
+                <div class="col-lg-4">
+                    <div class="card-glass h-100">
+                        <div class="card-header-glass">
+                            <span><i class="fas fa-sliders-h me-2"></i>Analiz Parametreleri</span>
+                        </div>
+                        <div class="card-body d-flex flex-column gap-3">
+
+                            <div>
+                                <label class="form-label small text-uppercase opacity-75" style="letter-spacing:1px;">İstasyon</label>
+                                <select id="maint-station" class="form-select bg-dark text-white border-secondary">
+                                    <option value="Ankara">Ankara (39.93°N, 32.86°E · 900 m)</option>
+                                    <option value="Konya">Konya (37.87°N, 32.49°E · 1000 m)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="form-label small text-uppercase opacity-75" style="letter-spacing:1px;">
+                                    Bakım Süresi (Saat)
+                                    <i class="fas fa-circle-info ms-1 opacity-50" data-bs-toggle="tooltip"
+                                       title="Antenin çevrimdışı olacağı süre. Maksimum 72 saat."></i>
+                                </label>
+                                <input type="number" id="maint-duration" class="form-control bg-dark text-white border-secondary"
+                                       value="4" min="1" max="72" step="0.5">
+                            </div>
+
+                            <div>
+                                <label class="form-label small text-uppercase opacity-75" style="letter-spacing:1px;">İş Emri Türü</label>
+                                <input type="text" id="maint-work-order" class="form-control bg-dark text-white border-secondary"
+                                       value="ANTENNA_MAINTENANCE" placeholder="Örn: LNB_REPLACEMENT">
+                            </div>
+
+                            <div>
+                                <label class="form-label small text-uppercase opacity-75" style="letter-spacing:1px;">
+                                    Analiz Edilecek Uydu Sayısı
+                                    <i class="fas fa-circle-info ms-1 opacity-50" data-bs-toggle="tooltip"
+                                       title="Daha fazla uydu → daha kapsamlı analiz, fakat hesaplama süresi artar (~20 uydu için ≈10 sn)."></i>
+                                </label>
+                                <input type="number" id="maint-sat-limit" class="form-control bg-dark text-white border-secondary"
+                                       value="20" min="5" max="50">
+                            </div>
+
+                            <button class="btn btn-warning py-3 mt-auto fw-bold" onclick="runMaintenanceAnalysis()">
+                                <i class="fas fa-search-location fa-lg me-2"></i>Bakım Etkisini Analiz Et
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── SONUÇLAR (Sağ) ────────────────────────────────────── -->
+                <div class="col-lg-8">
+
+                    <!-- Boş durum -->
+                    <div id="maint-empty" class="card-glass p-5 text-center">
+                        <i class="fas fa-wrench fa-3x opacity-25 mb-3 d-block"></i>
+                        <p class="opacity-50 mb-0">Analizi başlatmak için sol taraftaki formu doldurun ve <strong>"Bakım Etkisini Analiz Et"</strong> butonuna tıklayın.</p>
+                    </div>
+
+                    <!-- Yükleniyor durumu -->
+                    <div id="maint-loading" class="card-glass p-5 text-center d-none">
+                        <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;" role="status"></div>
+                        <h5 class="text-warning fw-light mb-1">7 günlük geçiş pencereleri hesaplanıyor…</h5>
+                        <p class="small opacity-50 mb-0">SGP4 propagasyonu + B* ağırlık analizi + 300+ aday pencere puanlaması</p>
+                    </div>
+
+                    <!-- Sonuçlar -->
+                    <div id="maint-results" class="d-none">
+
+                        <!-- Özet istatistikler -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-sm-4">
+                                <div class="card-glass p-3 text-center">
+                                    <div class="small text-uppercase opacity-60" style="letter-spacing:1px;">Toplam Geçiş</div>
+                                    <div class="h3 fw-bold text-white my-1" id="maint-stat-passes">--</div>
+                                    <div class="small opacity-50">7 günlük periyot</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="card-glass p-3 text-center">
+                                    <div class="small text-uppercase opacity-60" style="letter-spacing:1px;">Toplam Temas</div>
+                                    <div class="h3 fw-bold text-info my-1" id="maint-stat-contact">--</div>
+                                    <div class="small opacity-50">dakika</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="card-glass p-3 text-center">
+                                    <div class="small text-uppercase opacity-60" style="letter-spacing:1px;">Değerlendirilen Aralık</div>
+                                    <div class="h3 fw-bold text-warning my-1" id="maint-stat-windows">--</div>
+                                    <div class="small opacity-50" id="maint-stat-compute">--</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- En İyi Zaman Aralıkları -->
+                        <div class="card-glass mb-4" style="border:1px solid rgba(10,255,96,0.25);">
+                            <div class="card-header-glass" style="color: var(--accent-green);">
+                                <span><i class="fas fa-check-circle me-2"></i>En İyi Zaman Aralıkları — Bakımı Burada Planlayın</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-space table-hover align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th style="width:40px;">#</th>
+                                                <th>Zaman Aralığı (UTC)</th>
+                                                <th class="text-center">Kayıp Geçiş</th>
+                                                <th class="text-center">Kayıp Temas</th>
+                                                <th class="text-end">Maliyet Puanı</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="maint-best-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- En Kötü Zaman Aralıkları -->
+                        <div class="card-glass" style="border:1px solid rgba(255,42,42,0.25);">
+                            <div class="card-header-glass text-danger">
+                                <span><i class="fas fa-ban me-2"></i>En Kötü Zaman Aralıkları — Bu Saatlerde Bakım Yapmayın</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-space table-hover align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th style="width:40px;">#</th>
+                                                <th>Zaman Aralığı (UTC)</th>
+                                                <th class="text-center">Kayıp Geçiş</th>
+                                                <th class="text-center">Kayıp Temas</th>
+                                                <th class="text-end">Maliyet Puanı</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="maint-worst-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Uydu Ağırlık Detayları -->
+                        <div class="mt-3">
+                            <button class="explainer-toggle mb-2" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#maint-weights-collapse" aria-expanded="false">
+                                <span><i class="fas fa-weight-hanging me-2"></i>Uydu Ağırlık Detayları</span>
+                                <i class="fas fa-chevron-down chevron"></i>
+                            </button>
+                            <div class="collapse" id="maint-weights-collapse">
+                                <div class="card-glass" style="border:1px solid rgba(255,255,255,0.08);">
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-space table-hover align-middle mb-0 small">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Uydu</th>
+                                                        <th class="text-center">İrtifa</th>
+                                                        <th class="text-center">B* (etkin)</th>
+                                                        <th class="text-center">Tahmini Ömür</th>
+                                                        <th class="text-center">Ağırlık</th>
+                                                        <th class="text-center">B* Kaynağı</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="maint-weights-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- /maint-results -->
+                </div><!-- /col-lg-8 -->
+
+            </div><!-- /row -->
+        </div>
+        <!-- ═══════════════════════════════════════════════════════════════ -->
 
         <footer class="mt-auto pt-3 pb-2 animate__animated animate__fadeInUp">
             <div class="card-glass p-3 footer-glass">

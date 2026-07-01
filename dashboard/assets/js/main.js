@@ -1161,3 +1161,154 @@ async function calculateManeuver() {
             }
         });
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // BAKIM ETKİ ANALİZİ
+    // ════════════════════════════════════════════════════════════════════════
+
+    function _maintSetState(state) {
+        // state: 'empty' | 'loading' | 'results'
+        document.getElementById('maint-empty').classList.toggle('d-none',   state !== 'empty');
+        document.getElementById('maint-loading').classList.toggle('d-none', state !== 'loading');
+        document.getElementById('maint-results').classList.toggle('d-none', state !== 'results');
+    }
+
+    async function runMaintenanceAnalysis() {
+        const stationName  = document.getElementById('maint-station').value;
+        const durationHrs  = parseFloat(document.getElementById('maint-duration').value);
+        const satLimit     = parseInt(document.getElementById('maint-sat-limit').value, 10);
+
+        if (!stationName || isNaN(durationHrs) || durationHrs <= 0) {
+            alert('Lütfen geçerli bir istasyon ve süre girin.');
+            return;
+        }
+
+        _maintSetState('loading');
+
+        const payload = {
+            station_name: stationName,
+            duration_hours: durationHrs,
+            priority_satellite_norad_ids: null,
+            satellite_limit: satLimit
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/maintenance/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || res.statusText);
+            }
+
+            const data = await res.json();
+            _renderMaintenanceResults(data);
+            _maintSetState('results');
+
+        } catch (e) {
+            console.error('Bakım analiz hatası:', e);
+            _maintSetState('empty');
+            alert('Analiz sırasında hata: ' + e.message);
+        }
+    }
+
+    function _fmtWindow(startUtc, endUtc) {
+        // "26 Haz 14:00 → 18:00 UTC" gibi kısa format
+        const s = new Date(startUtc);
+        const e = new Date(endUtc);
+        const dateStr = s.toLocaleDateString('tr-TR', { day:'numeric', month:'short' });
+        const sTime   = s.toISOString().slice(11, 16);
+        const eTime   = e.toISOString().slice(11, 16);
+        return `${dateStr} ${sTime} → ${eTime} UTC`;
+    }
+
+    function _renderMaintenanceResults(data) {
+        // Özet istatistikler
+        document.getElementById('maint-stat-passes').textContent  = data.total_passes_in_period;
+        document.getElementById('maint-stat-contact').textContent = data.total_contact_minutes.toFixed(0);
+        document.getElementById('maint-stat-windows').textContent = data.candidate_windows_evaluated;
+        document.getElementById('maint-stat-compute').textContent =
+            `${data.total_satellites_analyzed} uydu · ${data.computation_time_s}s`;
+
+        // En İyi Zaman Aralıkları
+        const bestBody = document.getElementById('maint-best-body');
+        bestBody.innerHTML = '';
+        data.best_windows.forEach(w => {
+            const noPassBadge = w.passes_lost === 0
+                ? '<span class="badge bg-success bg-opacity-25 text-success ms-2">Sıfır Kayıp</span>'
+                : '';
+            bestBody.innerHTML += `
+                <tr style="background: rgba(10,255,96,0.07);">
+                    <td class="fw-bold text-success">#${w.rank}</td>
+                    <td class="font-mono small">
+                        ${_fmtWindow(w.start_utc, w.end_utc)}${noPassBadge}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge ${w.passes_lost === 0 ? 'bg-success' : 'bg-warning text-dark'} bg-opacity-25">
+                            ${w.passes_lost}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <span class="${w.contact_minutes_lost === 0 ? 'text-success' : 'text-warning'}">
+                            ${w.contact_minutes_lost.toFixed(1)} dk
+                        </span>
+                    </td>
+                    <td class="text-end font-mono">
+                        <span class="text-success fw-bold">${w.cost_score.toFixed(0)}</span>
+                    </td>
+                </tr>`;
+        });
+        if (!data.best_windows.length) {
+            bestBody.innerHTML = '<tr><td colspan="5" class="text-center opacity-50">Sonuç yok</td></tr>';
+        }
+
+        // En Kötü Zaman Aralıkları
+        const worstBody = document.getElementById('maint-worst-body');
+        worstBody.innerHTML = '';
+        data.worst_windows.forEach(w => {
+            worstBody.innerHTML += `
+                <tr style="background: rgba(255,42,42,0.07);">
+                    <td class="fw-bold text-danger">#${w.rank}</td>
+                    <td class="font-mono small">${_fmtWindow(w.start_utc, w.end_utc)}</td>
+                    <td class="text-center">
+                        <span class="badge bg-danger bg-opacity-25 text-danger">${w.passes_lost}</span>
+                    </td>
+                    <td class="text-center text-danger">${w.contact_minutes_lost.toFixed(1)} dk</td>
+                    <td class="text-end font-mono">
+                        <span class="text-danger fw-bold">${w.cost_score.toFixed(0)}</span>
+                    </td>
+                </tr>`;
+        });
+        if (!data.worst_windows.length) {
+            worstBody.innerHTML = '<tr><td colspan="5" class="text-center opacity-50">Sonuç yok</td></tr>';
+        }
+
+        // Uydu Ağırlık Detayları
+        const weightsBody = document.getElementById('maint-weights-body');
+        weightsBody.innerHTML = '';
+        const weightColor = { 3.0: 'text-danger', 2.0: 'text-warning', 1.0: 'text-success' };
+        (data.satellite_weight_details || []).forEach(d => {
+            const lifetimeStr = d.estimated_lifetime_days != null
+                ? `${d.estimated_lifetime_days.toFixed(0)} gün`
+                : '<span class="opacity-40">—</span>';
+            const srcBadge = d.bstar_source === 'regression'
+                ? `<span class="badge bg-info bg-opacity-25 text-info">Regresyon <span class="opacity-75">${d.bstar_history_points}pt</span></span>`
+                : `<span class="badge bg-secondary bg-opacity-25 text-secondary">Anlık TLE</span>`;
+            const wClass = weightColor[d.weight] || 'text-white';
+            weightsBody.innerHTML += `
+                <tr>
+                    <td>${d.sat_name}</td>
+                    <td class="text-center font-mono">${d.altitude_km.toFixed(0)} km</td>
+                    <td class="text-center font-mono">${d.bstar.toExponential(2)}</td>
+                    <td class="text-center">${lifetimeStr}</td>
+                    <td class="text-center fw-bold ${wClass}">${d.weight.toFixed(1)}</td>
+                    <td class="text-center">${srcBadge}</td>
+                </tr>`;
+        });
+        if (!data.satellite_weight_details || !data.satellite_weight_details.length) {
+            weightsBody.innerHTML = '<tr><td colspan="6" class="text-center opacity-50">Veri yok</td></tr>';
+        }
+    }
