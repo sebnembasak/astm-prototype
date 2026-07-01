@@ -916,12 +916,18 @@ async function calculateManeuver() {
         } catch (e) { console.error("Rejim Eşlemesi Hatası:", e); }
     }
 
-    async function fetchAndRenderSSAResults() {
+    let ssaCurrentPage = 1;
+
+    async function fetchAndRenderSSAResults(page = ssaCurrentPage) {
+        ssaCurrentPage = page;
         const tbody = document.getElementById('ssa-results-body');
         try {
             if (Object.keys(SSA_REGIMES).length === 0) await fetchSSARegimes();
-            const res = await fetch(`${API_BASE}/ssa/results`);
-            const data = await res.json();
+            const res = await fetch(`${API_BASE}/ssa/results?limit=${PAGE_LIMIT}&page=${page}`);
+            const resp = await res.json();
+            const data = resp.items;
+            renderPagination('ssa-pagination', resp.page, resp.pages, resp.total,
+                function(p) { fetchAndRenderSSAResults(p); });
             tbody.innerHTML = "";
 
             data.forEach(item => {
@@ -940,7 +946,6 @@ async function calculateManeuver() {
                             <div class="small text-info opacity-75">
                               ${item.predicted_country === 'Bilinmiyor' ? '' : (" " + item.predicted_country || '')}
                             </div>
-
                         </td>
                         <td>
                             <div class="small" style="color: ${regime.color}">

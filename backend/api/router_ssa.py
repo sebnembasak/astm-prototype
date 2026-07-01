@@ -18,28 +18,31 @@ async def run_analysis():
 
 
 @router.get("/results")
-async def get_ssa_results(limit: int = 50):
+async def get_ssa_results(limit: int = 50, page: int = 1):
+    import math
+    offset = (page - 1) * limit
     conn = get_conn()
     cur = conn.cursor()
-    query = """
-        SELECT s.sat_name, si.predicted_category, si.confidence, 
+    cur.execute("SELECT COUNT(*) FROM satellite_intelligence")
+    total = cur.fetchone()[0]
+    cur.execute("""
+        SELECT s.sat_name, si.predicted_category, si.confidence,
                si.cluster_id, si.is_anomaly, si.predicted_country, si.decay_risk
         FROM satellite_intelligence si
         JOIN raw_tles s ON si.sat_id = s.id
-        ORDER BY si.predicted_at DESC LIMIT ?
-    """
-    cur.execute(query, (limit,))
+        ORDER BY si.predicted_at DESC LIMIT ? OFFSET ?
+    """, (limit, offset))
     rows = cur.fetchall()
     conn.close()
 
     ssa_service.ensure_models_loaded()
-    results = []
+    items = []
     for row in rows:
         d = dict(row)
         regime = ssa_service.regime_map.get(d['cluster_id'])
         d['regime_label'] = regime['name'] if regime else "Bilinmeyen Yörünge"
-        results.append(d)
-    return results
+        items.append(d)
+    return {"items": items, "total": total, "page": page, "limit": limit, "pages": math.ceil(total / limit)}
 
 
 @router.get("/regimes")
