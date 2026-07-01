@@ -1189,9 +1189,10 @@ async function calculateManeuver() {
         } catch (e) { console.error("İstasyon haritası yüklenemedi:", e); }
 
         try {
-            const satRes = await fetch(`${API_BASE}/tle/list?limit=30`);
-            const sats = await satRes.json();
-            for (const sat of sats.slice(0, 15)) {
+            const satRes = await fetch(`${API_BASE}/tle/list?limit=15`);
+            const satResp = await satRes.json();
+            const sats = satResp.items ?? satResp;
+            for (const sat of sats) {
                 try {
                     const pathRes = await fetch(`${API_BASE}/orbit/propagate/${sat.id}?duration_minutes=1&step_seconds=1`);
                     const path = await pathRes.json();
