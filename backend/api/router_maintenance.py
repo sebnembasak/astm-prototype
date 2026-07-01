@@ -12,22 +12,31 @@ router = APIRouter(prefix="/maintenance", tags=["Maintenance Impact Analysis"])
 # ─── Request ────────────────────────────────────────────────────────────────
 
 class AnalyzeRequest(BaseModel):
-    station_name: str = Field(..., examples=["Ankara"], description="Station name (DB or candidate config)")
+    station_name: str = Field(..., examples=["Ankara"])
     duration_hours: float = Field(..., gt=0, le=72, examples=[4.0])
     priority_satellite_norad_ids: Optional[List[int]] = Field(
         default=None,
         examples=[[25994, 27540]],
-        description="NORAD IDs of satellites that must be included in the analysis.",
+        description="NORAD IDs that must be included regardless of orbit profile.",
     )
     satellite_limit: int = Field(
-        default=DEFAULT_SATELLITE_LIMIT,
-        ge=5,
-        le=80,
+        default=DEFAULT_SATELLITE_LIMIT, ge=5, le=80,
         description="Total satellites to analyze (higher = slower but more complete).",
     )
 
 
 # ─── Response ───────────────────────────────────────────────────────────────
+
+class SatelliteWeightDetailOut(BaseModel):
+    norad_id: int
+    sat_name: str
+    altitude_km: float
+    bstar: float
+    estimated_lifetime_days: Optional[float]  # null = no measurable drag (stable)
+    weight: float
+    bstar_history_points: int = 0
+    bstar_source: str = "snapshot"
+
 
 class PassLostDetailOut(BaseModel):
     sat_norad_id: int
@@ -60,6 +69,7 @@ class AnalyzeResponse(BaseModel):
     total_passes_in_period: int
     total_contact_minutes: float
     candidate_windows_evaluated: int
+    satellite_weight_details: List[SatelliteWeightDetailOut]
     best_windows: List[WindowRecommendationOut]
     worst_windows: List[WindowRecommendationOut]
     computation_time_s: float
@@ -72,12 +82,15 @@ async def analyze_maintenance_impact(req: AnalyzeRequest):
     """
     For a proposed maintenance window on a ground station, computes which
     satellite passes would be lost across the next 7 days and returns the
-    three lowest-impact time slots (best windows to schedule) and the three
-    highest-impact slots (worst windows to avoid).
+    three lowest-impact time slots (best windows) and highest-impact slots
+    (worst windows to avoid).
 
-    Cost score = Σ (pass_duration_s × satellite_weight) for all lost passes.
-    Phase 1 uses uniform weight = 1.0; Phase 2 will derive weights from B*
-    orbital decay term (satellites closer to re-entry get higher weight).
+    Phase 2 weights: cost = Σ (pass_duration_s × satellite_weight), where
+    weight is derived from the B* drag term and orbital altitude:
+      - estimated lifetime < 180 days  → weight 3.0
+      - lifetime 180–365 days          → weight 2.0
+      - lifetime > 365 days            → weight 1.0
+      - B* = 0 or unavailable          → weight 1.0 (safe default)
     """
     try:
         result = maintenance_service.analyze(
@@ -91,23 +104,16 @@ async def analyze_maintenance_impact(req: AnalyzeRequest):
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-    def _serialize_window(w) -> WindowRecommendationOut:
+    def _window(w) -> WindowRecommendationOut:
         return WindowRecommendationOut(
-            rank=w.rank,
-            start_utc=w.start_utc,
-            end_utc=w.end_utc,
-            cost_score=w.cost_score,
-            passes_lost=w.passes_lost,
+            rank=w.rank, start_utc=w.start_utc, end_utc=w.end_utc,
+            cost_score=w.cost_score, passes_lost=w.passes_lost,
             contact_minutes_lost=w.contact_minutes_lost,
             passes_lost_detail=[
                 PassLostDetailOut(
-                    sat_norad_id=p.sat_norad_id,
-                    sat_name=p.sat_name,
-                    aos=p.aos,
-                    los=p.los,
-                    duration_s=p.duration_s,
-                    max_elevation_deg=p.max_elevation_deg,
-                    satellite_weight=p.satellite_weight,
+                    sat_norad_id=p.sat_norad_id, sat_name=p.sat_name,
+                    aos=p.aos, los=p.los, duration_s=p.duration_s,
+                    max_elevation_deg=p.max_elevation_deg, satellite_weight=p.satellite_weight,
                 )
                 for p in w.passes_lost_detail
             ],
@@ -124,7 +130,18 @@ async def analyze_maintenance_impact(req: AnalyzeRequest):
         total_passes_in_period=result.total_passes_in_period,
         total_contact_minutes=result.total_contact_minutes,
         candidate_windows_evaluated=result.candidate_windows_evaluated,
-        best_windows=[_serialize_window(w) for w in result.best_windows],
-        worst_windows=[_serialize_window(w) for w in result.worst_windows],
+        satellite_weight_details=[
+            SatelliteWeightDetailOut(
+                norad_id=d.norad_id, sat_name=d.sat_name,
+                altitude_km=d.altitude_km, bstar=d.bstar,
+                estimated_lifetime_days=d.estimated_lifetime_days,
+                weight=d.weight,
+                bstar_history_points=d.bstar_history_points,
+                bstar_source=d.bstar_source,
+            )
+            for d in result.satellite_weight_details
+        ],
+        best_windows=[_window(w) for w in result.best_windows],
+        worst_windows=[_window(w) for w in result.worst_windows],
         computation_time_s=result.computation_time_s,
     )
