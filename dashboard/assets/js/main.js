@@ -170,8 +170,9 @@
             if(id === 'conjunctions') loadAlerts();
             if(id === 'map-view' && map) setTimeout(() => map.invalidateSize(), 200);
             if(id === 'ssa-panel') {
-            fetchAndRenderSSAResults();
-            renderSpaceRegimeHeatmap();
+                fetchAndRenderSSAResults();
+                renderSpaceRegimeHeatmap();
+                checkSSAClassificationStatus();
             }
             if(id === 'maneuver-detection') loadManeuverEvents();
             if(id === 'ground-scheduling') {
@@ -783,12 +784,49 @@ async function calculateManeuver() {
             const data = await res.json();
             alert(`Analiz Bitti! ${data.processed_satellites} uydu sınıflandırıldı.`);
             await fetchAndRenderSSAResults();
-
+            await renderSpaceRegimeHeatmap();
+            await checkSSAClassificationStatus();
         } catch (e) {
             alert("Hata: " + e);
         } finally {
             showLoading(false);
         }
+    }
+
+    async function checkSSAClassificationStatus() {
+        const banner = document.getElementById('ssa-pending-banner');
+        if (!banner) return;
+        try {
+            const res = await fetch(`${API_BASE}/ssa/status`);
+            const { pending, total } = await res.json();
+            if (pending > 0) {
+                const pct = Math.round((pending / total) * 100);
+                banner.style.cssText = [
+                    'display:flex', 'align-items:center', 'gap:12px',
+                    'padding:10px 16px', 'border-radius:8px', 'margin-bottom:12px',
+                    'background:rgba(255,174,0,0.1)', 'border:1px solid rgba(255,174,0,0.35)'
+                ].join(';');
+                banner.innerHTML = `
+                    <i class="fas fa-exclamation-triangle" style="color:#ffae00;font-size:18px;flex-shrink:0"></i>
+                    <div style="flex:1">
+                        <div style="color:#ffae00;font-weight:600;font-size:13px">
+                            ${pending.toLocaleString()} uydu sınıflandırılmadı
+                        </div>
+                        <div style="color:rgba(255,255,255,0.5);font-size:12px">
+                            Toplam ${total.toLocaleString()} uydunun %${pct}'i henüz analiz edilmedi.
+                            TLE güncellemesinden sonra "Kataloğu Sınıflandır" butonunu çalıştırın.
+                        </div>
+                    </div>
+                    <button onclick="runSSAAnalysis()" style="
+                        padding:5px 14px;border-radius:6px;border:1px solid #ffae00;
+                        background:rgba(255,174,0,0.15);color:#ffae00;font-size:12px;cursor:pointer
+                    ">Şimdi Sınıflandır</button>
+                `;
+            } else {
+                banner.style.display = 'none';
+                banner.innerHTML = '';
+            }
+        } catch(e) { /* sessiz hata */ }
     }
 
     const MANEUVER_TYPE_BADGES = {

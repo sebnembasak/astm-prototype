@@ -361,13 +361,23 @@ class SSAService:
                 return json.load(f)
         return None
 
+    def get_pending_classification_count(self):
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM raw_tles WHERE id NOT IN (SELECT sat_id FROM satellite_intelligence)")
+        pending = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM raw_tles")
+        total = cur.fetchone()[0]
+        conn.close()
+        return {"pending": pending, "total": total}
+
     def get_regime_heatmap_data(self):
         conn = get_conn()
         cur = conn.cursor()
         cur.execute("""
             SELECT r.line2, si.cluster_id
             FROM raw_tles r
-            LEFT JOIN satellite_intelligence si ON si.sat_id = r.id
+            INNER JOIN satellite_intelligence si ON si.sat_id = r.id
         """)
         data = []
         for line2, cluster_id in cur.fetchall():

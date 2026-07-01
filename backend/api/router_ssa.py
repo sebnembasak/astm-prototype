@@ -63,6 +63,12 @@ async def get_ssa_prediction(sat_id: int):
     return dict(row)
 
 
+@router.get("/status")
+async def get_ssa_status():
+    """Kaç uydu sınıflandırılmamış, toplam kaç uydu var."""
+    return ssa_service.get_pending_classification_count()
+
+
 @router.get("/heatmap")
 async def get_heatmap():
     return ssa_service.get_regime_heatmap_data()
