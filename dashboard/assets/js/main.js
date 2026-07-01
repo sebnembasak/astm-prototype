@@ -9,43 +9,61 @@
         let maneuverCurrentPage = 1;
 
         /**
-         * containerId altına Bootstrap pagination bileşeni render eder.
-         * @param {string} containerId  - pagination div ID'si
-         * @param {number} page         - aktif sayfa (1-based)
-         * @param {number} pages        - toplam sayfa sayısı
-         * @param {number} total        - toplam kayıt sayısı
-         * @param {function} onPage     - (newPage: number) => void
+         * containerId altına uygulamanın cam/neon temasıyla uyumlu
+         * özel pagination bileşeni render eder.
          */
         function renderPagination(containerId, page, pages, total, onPage) {
             const el = document.getElementById(containerId);
             if (!el) return;
-            if (pages <= 1) { el.innerHTML = `<small class="text-secondary">${total} kayıt</small>`; return; }
 
-            // Gösterilecek sayfa numaraları: her zaman ilk, son ve aktif etrafında ±2
+            el.style.cssText = [
+                'display:flex', 'justify-content:space-between', 'align-items:center',
+                'padding:10px 2px 0', 'border-top:1px solid rgba(255,255,255,0.07)',
+                'margin-top:6px'
+            ].join(';');
+
+            if (pages <= 1) {
+                el.innerHTML = `<small style="color:rgba(255,255,255,0.35);font-size:12px">${total.toLocaleString()} kayıt</small><span></span>`;
+                return;
+            }
+
+            // Aktif sayfa ±2 + ilk/son her zaman görünür
             const visible = new Set([1, pages]);
             for (let i = Math.max(1, page - 2); i <= Math.min(pages, page + 2); i++) visible.add(i);
             const sorted = [...visible].sort((a, b) => a - b);
 
-            let btns = '';
+            const btnStyle = (active, disabled) => [
+                'min-width:30px', 'height:26px', 'padding:0 6px',
+                'border-radius:5px', 'font-size:12px', 'cursor:' + (disabled ? 'default' : 'pointer'),
+                'transition:all 0.15s', 'margin:0 2px', 'border:1px solid',
+                active
+                    ? 'border-color:#00f3ff;background:rgba(0,243,255,0.15);color:#00f3ff'
+                    : disabled
+                        ? 'border-color:rgba(255,255,255,0.08);background:transparent;color:rgba(255,255,255,0.2)'
+                        : 'border-color:rgba(255,255,255,0.12);background:transparent;color:rgba(255,255,255,0.6)',
+            ].join(';');
+
+            const navBtn = (label, targetPage, disabled) =>
+                `<button onclick="if(!${disabled})(${onPage})(${targetPage})"
+                    style="${btnStyle(false, disabled)}">${label}</button>`;
+
+            let inner = navBtn('‹', page - 1, page === 1);
             let prev = 0;
             for (const p of sorted) {
-                if (prev && p - prev > 1) btns += `<li class="page-item disabled"><span class="page-link bg-transparent text-secondary border-0">…</span></li>`;
-                const active = p === page ? 'active' : '';
-                btns += `<li class="page-item ${active}"><button class="page-link bg-dark text-white border-secondary" onclick="(${onPage})(${p})">${p}</button></li>`;
+                if (prev && p - prev > 1)
+                    inner += `<span style="color:rgba(255,255,255,0.25);padding:0 3px;font-size:12px">…</span>`;
+                const isActive = p === page;
+                inner += `<button onclick="(${onPage})(${p})" ${isActive ? 'disabled' : ''}
+                    style="${btnStyle(isActive, isActive)}">${p}</button>`;
                 prev = p;
             }
+            inner += navBtn('›', page + 1, page === pages);
 
             el.innerHTML = `
-                <small class="text-secondary">${total} kayıt · sayfa ${page}/${pages}</small>
-                <nav><ul class="pagination pagination-sm mb-0">
-                    <li class="page-item ${page === 1 ? 'disabled' : ''}">
-                        <button class="page-link bg-dark text-white border-secondary" onclick="(${onPage})(${page - 1})">‹</button>
-                    </li>
-                    ${btns}
-                    <li class="page-item ${page === pages ? 'disabled' : ''}">
-                        <button class="page-link bg-dark text-white border-secondary" onclick="(${onPage})(${page + 1})">›</button>
-                    </li>
-                </ul></nav>
+                <small style="color:rgba(255,255,255,0.35);font-size:12px">
+                    ${total.toLocaleString()} kayıt &nbsp;·&nbsp; sayfa ${page} / ${pages}
+                </small>
+                <div style="display:flex;align-items:center">${inner}</div>
             `;
         }
 
