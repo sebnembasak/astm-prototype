@@ -138,10 +138,11 @@ def compute_conjunction_for_pair(satrec1, satrec2, ref_epoch, r1, v1, r2, v2, pr
             normalized_score = max(0.0, min(1.0, normalized_score))
 
         # DOCKING (Kenetlenme) Analizi
-        # Raporda test edilen ISS modüllerinin birbirine 5 metre (0.005 km) yaklaştığı görülmüştü.
-        # Bu bir çarpışma değil, formasyon uçuşudur. Bunu ayırt etmek için:
-        # Kriter: Mesafe < 1 km VE Bağıl Hız < 10 m/s (0.01 km/s)
-        is_docking = (miss_refined < 1.0) and (rel_vel < 0.01)
+        # Kenetlenmiş veya formasyon uçuşu yapan nesneleri COLLISION'dan ayırt etmek için:
+        # Kriter: Mesafe < 5 km VE Bağıl Hız < 50 m/s (0.05 km/s)
+        # 5 km eşiği: TLE doğruluk sınırı ~1-2 km; kenetlenmiş modüller TLE hatasından
+        # dolayı 1-2 km ayrı görünebilir (örn. CYGNUS NG-24 ↔ ISS kompleksi = 1.21 km).
+        is_docking = (miss_refined < 5.0) and (rel_vel < 0.05)
         final_event_type = "DOCKING" if is_docking else "COLLISION"
 
         # Eğer docking ise risk skoru teknik olarak yüksek (çok yakınlar)
