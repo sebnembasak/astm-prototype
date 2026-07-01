@@ -93,7 +93,8 @@ def refine_tca_with_propagator(satrec1, satrec2, epoch, t_est_seconds, propagate
 
 # İş Akışı
 def compute_conjunction_for_pair(satrec1, satrec2, ref_epoch, r1, v1, r2, v2, propagate_func,
-                                 analytic_window_sec=7200.0) -> Optional[Conjunction]:
+                                 analytic_window_sec=7200.0,
+                                 sat1_name: str = "", sat2_name: str = "") -> Optional[Conjunction]:
     """
     İki uydu arasındaki çarpışma riskini analiz eden ana fonksiyon.
     Algoritma:
@@ -138,24 +139,77 @@ def compute_conjunction_for_pair(satrec1, satrec2, ref_epoch, r1, v1, r2, v2, pr
             normalized_score = max(0.0, min(1.0, normalized_score))
 
         # DOCKING (Kenetlenme) Analizi
-        # Üç kategori — bağıl hız (rel_vel) birincil ayraç:
+        # ── Dört kategori — bağıl hız (rel_vel) birincil ayraç ─────────────────
         #
-        # DOCKING   : miss < 5 km  VE vel < 0.05 km/s
-        #             Fiziksel temas / randevu (ISS, CSS modülleri).
-        #             TLE doğruluk sınırı ~1-2 km olduğundan 5 km eşiği gerekli.
+        # DOCKING     : miss < 5 km  VE vel < 0.05 km/s
+        #               Fiziksel temas / randevu (ISS, CSS modülleri).
+        #               TLE doğruluk sınırı ~1-2 km olduğundan 5 km eşiği gerekli.
         #
-        # FORMATION : miss < 15 km VE vel < 0.05 km/s (docking değil)
-        #             Aynı konstellasyondan eş yörüngeli uydular (Planet Flock,
-        #             LEMUR, GEO komşular). Gerçek çarpışma riski ihmal edilebilir;
-        #             ancak katalogda ayrı bir kategori olarak tutulur.
+        # FORMATION   : miss < 15 km VE vel < 0.05 km/s (docking değil)
+        #               Aynı konstellasyondan eş yörüngeli aktif uydular.
+        #               Gerçek çarpışma riski ihmal edilebilir.
         #
-        # COLLISION : diğer her şey — farklı yörüngelerden rastlantısal karşılaşma.
-        is_docking   = (miss_refined <  5.0) and (rel_vel < 0.05)
-        is_formation = (miss_refined < 15.0) and (rel_vel < 0.05) and not is_docking
+        # GEO_NEIGHBOR: FORMATION kriterlerini karşılayan ama her iki nesne de
+        #               GEO yörüngesinde olanlar. Bunlar slot komşularıdır; ne
+        #               çarpışma riski ne de gerçek formasyon uçuşu söz konusudur.
+        #
+        # COLLISION   : diğer her şey.
+        #
+        # ── Kural 1: GEO Slot Komşuluğu ──────────────────────────────────────
+        # GEO yörüngesi iki şartı aynı anda karşılamalıdır:
+        #
+        #  (a) Düşük ortalama hareket — GEO dönme süresi ~1436 dk →
+        #      n ≈ 0.00437 rad/min. %50 marjla eşik 0.00656 rad/min.
+        #
+        #  (b) Neredeyse dairesel yörünge (eksantriklik < 0.01) —
+        #      PROBA-3 gibi HEO uydular düşük n'e sahip olsa da
+        #      eksantrikliği ~0.8'e ulaşır; bunlar GEO değil, gerçek
+        #      formasyon uçuşu yapan aktif uyduLardır.
+        #      Yalnızca (a) PROBA-3'ü yanlışlıkla GEO_NEIGHBOR yapar;
+        #      (b) bu durumu engeller.
+        _GEO_N_THRESHOLD = 1.5 * 2 * np.pi / 1436.0  # rad/min
+        _GEO_ECC_MAX     = 0.01                        # GEO daireseldir; HEO hariç
+        sat1_is_geo = (float(satrec1.no_kozai) < _GEO_N_THRESHOLD
+                       and float(satrec1.ecco) < _GEO_ECC_MAX)
+        sat2_is_geo = (float(satrec2.no_kozai) < _GEO_N_THRESHOLD
+                       and float(satrec2.ecco) < _GEO_ECC_MAX)
+        both_geo    = sat1_is_geo and sat2_is_geo
+
+        # ── Kural 2: Aktif Olmayan Nesne Kontrolü ────────────────────────────
+        # Formasyon uçuşu tanımı gereği koordineli, aktif nesneler arasında olur.
+        # Uzay çöpü (debris), roket gövdesi (rocket body) veya pasifleşmiş nesne
+        # yavaş bağıl hızla yakınlaşıyorsa bu koordineli bir oluşum değil, gerçek
+        # bir yakın geçiş tehlikesidir — COLLISION olarak sınıflandırılır.
+        # Tespit yöntemi: Celestrak/NORAD adlandırma kuralı; bu nesneler adında
+        # aşağıdaki anahtar kelimeleri içerir:
+        #   DEB   → space debris parçası
+        #   R/B   → roket gövdesi (rocket body)
+        #   ROCKET / STAGE / BODY → fırlatma sistemi kalıntısı
+        _INACTIVE_KW = ("DEB", "R/B", "ROCKET", "STAGE", "BODY")
+        n1 = sat1_name.upper()
+        n2 = sat2_name.upper()
+        either_inactive = any(kw in n1 or kw in n2 for kw in _INACTIVE_KW)
+
+        # FORMATION hız eşiği 0.10 km/s (100 m/s): 0.05 km/s çok dar kalıyordu;
+        # LEMUR-2 gibi aynı konstellasyondan iki uydunun 66 m/s bağıl hızla
+        # karşılaşması COLLISION'a düşüyordu. 100 m/s eşiği bu borderline
+        # konstellasyon çiftlerini FORMATION'a çeker, cross-inclination (>150 m/s)
+        # karşılaşmaları COLLISION olarak doğru kalır.
+        _FORMATION_VEL = 0.10  # km/s
+        is_docking   = (miss_refined <  5.0) and (rel_vel < _FORMATION_VEL)
+        is_formation = (miss_refined < 15.0) and (rel_vel < _FORMATION_VEL) and not is_docking
 
         if is_docking:
             final_event_type = "DOCKING"
             normalized_score = 1.0
+        elif is_formation and either_inactive:
+            # Aktif olmayan bir nesne FORMATION eşiğini karşılasa bile
+            # koordineli formasyon uçuşu mümkün değildir → gerçek risk.
+            final_event_type = "COLLISION"
+        elif is_formation and both_geo:
+            # İki GEO nesnesi birbirine 15 km içinde ve hemen hemen
+            # aynı hızda → slot komşuları, alarm değil.
+            final_event_type = "GEO_NEIGHBOR"
         elif is_formation:
             final_event_type = "FORMATION"
         else:

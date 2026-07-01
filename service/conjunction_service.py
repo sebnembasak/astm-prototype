@@ -34,8 +34,10 @@ class ConjunctionService:
         if len(satellites) < 2:
             return {"status": "Yeterli uydu yok", "processed_pairs": 0, "alerts_saved": 0}
 
-        satrecs = {}  # SGP4 nesnelerini tutacak
-        states_map = {}  # uyduların t0 anındaki konum/hız verilerini tutacak
+        satrecs = {}    # SGP4 nesnelerini tutacak
+        states_map = {} # uyduların t0 anındaki konum/hız verilerini tutacak
+        names_map = {}  # id → sat_name; conjunction sınıflandırıcısına aktif/pasif
+                        # nesne tespiti için gerekli (debris, R/B, rocket body kuralı)
 
         # Başlangıç Durumlarının Hesaplanması
         # KD-Tree kurabilmek için tüm uyduların t0 anındaki konumlarını bilmemiz gerekir
@@ -46,6 +48,7 @@ class ConjunctionService:
                 satrecs[sid] = st
                 r, v = propagate_satrec_single(st, analysis_start_time)
                 states_map[sid] = (r, v)
+                names_map[sid] = sat.get("sat_name", "")
             except Exception:
                 continue
 
@@ -98,7 +101,9 @@ class ConjunctionService:
                     analysis_start_time,
                     r1, v1, r2, v2,
                     propagate_satrec_single,
-                    analytic_window_sec=ANALYTIC_WINDOW
+                    analytic_window_sec=ANALYTIC_WINDOW,
+                    sat1_name=names_map.get(id1, ""),
+                    sat2_name=names_map.get(id2, ""),
                 )
             except Exception as e:
                 print(f"Error computing pair {id1}-{id2}: {e}")
@@ -109,7 +114,7 @@ class ConjunctionService:
 
             # Sonuçların Kaydedilmesi (Persistence)
             should_save = False
-            if conj.event_type in ("DOCKING", "FORMATION"):
+            if conj.event_type in ("DOCKING", "FORMATION", "GEO_NEIGHBOR"):
                 should_save = True
             elif conj.event_type == "COLLISION":
                 # Score > 0 demek belirli bir risk var demek
@@ -141,26 +146,28 @@ class ConjunctionService:
 
     def get_alerts(self, limit: int = 20, event_type: str = "COLLISION") -> List[Dict[str, Any]]:
         """
-        Veritabanından alarmları çeker.
-        SQL JOIN kullanarak Satellite tablosundan uydu isimlerini de getirir.
+        Veritabanından alarmları çeker. event_type virgülle ayrılmış birden fazla
+        tip içerebilir (örn. "FORMATION,GEO_NEIGHBOR") — Formasyon sekmesi her
+        ikisini de tek sorguda çekmek için bu özelliği kullanır.
         """
+        event_types = [t.strip() for t in event_type.split(",") if t.strip()]
+        placeholders = ",".join("?" * len(event_types))
         conn = get_conn()
         cur = conn.cursor()
-        query = """
-            SELECT 
+        query = f"""
+            SELECT
                 a.id, a.sat1_id, a.sat2_id, a.tca, a.miss_distance_km, a.rel_velocity_km_s, a.score, a.event_type, a.created_at,
                 s1.sat_name as sat1_name, s2.sat_name as sat2_name
             FROM conjunction_alerts a
             JOIN raw_tles s1 ON a.sat1_id = s1.id
             JOIN raw_tles s2 ON a.sat2_id = s2.id
-            WHERE a.event_type = ? 
+            WHERE a.event_type IN ({placeholders})
             ORDER BY a.score DESC, a.tca ASC
             LIMIT ?
         """
-        cur.execute(query, (event_type, limit))
+        cur.execute(query, (*event_types, limit))
         rows = cur.fetchall()
         conn.close()
-        # Row objelerini dictionarye çevirerek JSON uyumlu hale getir
         return [dict(row) for row in rows]
 
 

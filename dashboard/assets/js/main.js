@@ -234,32 +234,77 @@ const CLUSTER_COLORS = {
 
                 const pathData = await fetchOrbitPath(id);
                 const latlngs = pathData.map(p => [p.lat, p.lon]);
-
-                const polyline = L.polyline(buildOrbitSegments(pathData), {
-                    color: color,
-                    weight: 3,
-                    opacity: 0.8,
-                    smoothFactor: 1
-                }).addTo(map);
-
                 const currentPt = latlngs[0];
                 const currentData = pathData[0];
+
+                // GEO tespiti: irtifa > 33 000 km → jeostasyon / jeo-senkron yörünge.
+                // GEO uydular Dünya'ya göre neredeyse sabit durur; yer izi 100 dk'da
+                // yalnızca ~0.006° hareket eder. Bu durumda:
+                //   1. Polilini çizmek yanıltıcı — görünmez düzeyde küçük bir eğri olur.
+                //   2. fitBounds bu minik kutu için zoom 18+ verir; tile sunucusu boş
+                //      döner ve harita siyah görünür (asıl bug).
+                // Çözüm: GEO uydusuna polilini değil, yalnızca büyük bir marker ekle
+                // ve haritayı zoom 2'de küresel görünümde konumlandır.
+                const isGeo = currentData.alt_km > 33000;
+
+                let polyline;
+                if (isGeo) {
+                    // GEO: sabit nokta etrafında görünür bir daire çiz (dekoratif, yörünge değil)
+                    polyline = L.circle(currentPt, {
+                        radius: 200000,  // 200 km yarıçap — haritada görünür simgesel halka
+                        color: color,
+                        weight: 2,
+                        opacity: 0.7,
+                        fill: false,
+                        dashArray: '6 4'
+                    }).addTo(map);
+                } else {
+                    polyline = L.polyline(buildOrbitSegments(pathData), {
+                        color: color,
+                        weight: 3,
+                        opacity: 0.8,
+                        smoothFactor: 1
+                    }).addTo(map);
+                }
+
                 const icon = L.divIcon({
                     className: 'custom-icon',
                     html: `<div style="width:14px;height:14px;background:${color};border-radius:50%;box-shadow:0 0 12px ${color};border:2px solid white;animation:pulse 1.5s infinite;"></div>`,
                     iconSize: [14, 14]
                 });
+                const geoNote = isGeo ? `<br><span style="color:#a78bfa;font-size:0.8em">♦ Jeostasyon — yer izine sabit</span>` : '';
                 const marker = L.marker(currentPt, {icon: icon}).addTo(map)
                     .bindPopup(
                         `<strong>${name}</strong><br>` +
                         `Anlık: ${currentPt[0].toFixed(3)}°, ${currentPt[1].toFixed(3)}°<br>` +
-                        `Yükseklik: ${currentData.alt_km.toFixed(1)} km<br>` +
-                        `<span class="text-muted" style="font-size:0.8em">${new Date(currentData.time).toLocaleTimeString()}</span>`
+                        `Yükseklik: ${currentData.alt_km.toFixed(1)} km` +
+                        geoNote +
+                        `<br><span class="text-muted" style="font-size:0.8em">${new Date(currentData.time).toLocaleTimeString()}</span>`
                     );
 
                 activeLayers[id] = { polyline, marker, color, meta, pathData };
                 updateActiveSatList();
-                map.fitBounds(polyline.getBounds(), {padding: [50, 50]});
+
+                // fitBounds yerine akıllı konumlandırma:
+                // GEO'da bounds neredeyse sıfır → extreme zoom → tile yüklenemez (siyah harita).
+                // LEO'da normal fitBounds yeterli; eğer yörünge garip küçükse yine de
+                // fallback olarak zoom 2 kullan.
+                if (isGeo) {
+                    map.setView(currentPt, 2);
+                } else {
+                    const bounds = polyline.getBounds ? polyline.getBounds() : null;
+                    if (bounds && bounds.isValid()) {
+                        const latSpan = bounds.getNorth() - bounds.getSouth();
+                        const lonSpan = bounds.getEast() - bounds.getWest();
+                        if (latSpan < 5 && lonSpan < 5) {
+                            // Olağandışı küçük yörünge — tile patlamasını önle
+                            map.setView(currentPt, 4);
+                        } else {
+                            map.fitBounds(bounds, {padding: [50, 50]});
+                        }
+                    }
+                }
+
                 showSatDetails(id);
                 startRealtimeTracking();
 
@@ -458,7 +503,11 @@ const CLUSTER_COLORS = {
 
         async function loadAlerts() {
             try {
-                const res = await fetch(`${API_BASE}/conjunctions/alerts?limit=100&type=${currentAlertType}`);
+                // Formasyon sekmesi hem FORMATION hem GEO_NEIGHBOR kayıtlarını gösterir.
+                const fetchType = currentAlertType === 'FORMATION'
+                    ? 'FORMATION,GEO_NEIGHBOR'
+                    : currentAlertType;
+                const res = await fetch(`${API_BASE}/conjunctions/alerts?limit=100&type=${encodeURIComponent(fetchType)}`);
                 const data = await res.json();
                 const tbody = document.getElementById('conj-table-body');
                 tbody.innerHTML = "";
@@ -469,21 +518,24 @@ const CLUSTER_COLORS = {
                 }
 
                 data.forEach(a => {
-                    let badgeClass, badgeLabel, distClass, actionButtons;
+                    let badgeHtml, distClass, actionButtons;
 
                     if (a.event_type === 'DOCKING') {
-                        badgeClass = 'bg-info text-dark';
-                        badgeLabel = 'KENETLENME';
+                        badgeHtml  = `<span class="badge bg-info text-dark">KENETLENME</span>`;
                         distClass  = 'text-info';
                         actionButtons = `<button class="btn btn-sm btn-outline-info" onclick="visualizeConjunction(${a.sat1_id}, '${a.sat1_name}', ${a.sat2_id}, '${a.sat2_name}', '${a.tca}')"><i class="fas fa-eye me-1"></i> İzle</button>`;
+                    } else if (a.event_type === 'GEO_NEIGHBOR') {
+                        badgeHtml  = `<span class="badge text-white" style="background:#7c3aed;">GEO KOMŞU</span>`;
+                        distClass  = 'text-secondary';
+                        actionButtons = `<button class="btn btn-sm btn-outline-secondary" onclick="visualizeConjunction(${a.sat1_id}, '${a.sat1_name}', ${a.sat2_id}, '${a.sat2_name}', '${a.tca}')"><i class="fas fa-eye me-1"></i> İzle</button>`;
                     } else if (a.event_type === 'FORMATION') {
-                        badgeClass = 'bg-warning text-dark';
-                        badgeLabel = 'FORMASYON';
+                        badgeHtml  = `<span class="badge bg-warning text-dark">FORMASYON</span>`;
                         distClass  = 'text-warning';
                         actionButtons = `<button class="btn btn-sm btn-outline-warning" onclick="visualizeConjunction(${a.sat1_id}, '${a.sat1_name}', ${a.sat2_id}, '${a.sat2_name}', '${a.tca}')"><i class="fas fa-eye me-1"></i> İzle</button>`;
                     } else {
-                        badgeClass = a.score >= 0.8 ? 'bg-danger' : (a.score >= 0.4 ? 'bg-warning text-dark' : 'bg-success');
-                        badgeLabel = (a.score * 100).toFixed(0) + '%';
+                        const bc  = a.score >= 0.8 ? 'bg-danger' : (a.score >= 0.4 ? 'bg-warning text-dark' : 'bg-success');
+                        // Math.floor: 99.77 → "99%", toFixed(0) yuvarlardı → "100%"
+                        badgeHtml  = `<span class="badge ${bc}">${Math.floor(a.score * 100)}%</span>`;
                         distClass  = 'text-danger';
                         actionButtons = `<div class="btn-group">
                                 <button class="btn btn-sm btn-outline-info" onclick="visualizeConjunction(${a.sat1_id}, '${a.sat1_name}', ${a.sat2_id}, '${a.sat2_name}', '${a.tca}')"><i class="fas fa-eye"></i></button>
@@ -493,7 +545,7 @@ const CLUSTER_COLORS = {
 
                     tbody.innerHTML += `
                         <tr class="animate__animated animate__fadeIn">
-                            <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
+                            <td>${badgeHtml}</td>
                             <td>
                                 <div class="fw-bold">${a.sat1_name}</div>
                                 <div class="small font-mono">${a.sat1_id}</div>
