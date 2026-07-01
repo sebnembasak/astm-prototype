@@ -26,4 +26,7 @@ node_modules/
 
 # Yardımcı araç yapılandırma ve analiz klasörleri
 .claude_analysis/
-.claude/astm.db
+.claude/
+
+# Proje veritabanı (kök dizin)
+astm.db
