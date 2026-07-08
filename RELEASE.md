@@ -8,10 +8,10 @@ Diğer modüllere özel diyagramlar ilgili sürüm bölümlerinde ve `docs/Diagr
 
 ---
 
-# Release Notes - v2.0.0 (Bakım Etki Analizi, Sayfalama, SSA & Conjunction İyileştirmeleri, Dashboard UX Turu)
+# Release Notes - v2.0.0 (Bakım Etki Analizi, SSA & Conjunction İyileştirmeleri, Dashboard UX Geliştirme)
 
 ## Genel Bakış
-Bu sürüm dört ana eksende ilerler: (1) yer istasyonu bakım pencerelerinin operasyonel maliyetini hesaplayan yeni bir **Bakım Etki Analizi** modülü, (2) tüm büyük listelerde (uydu kataloğu, CDM, manevra, SSA) **sunucu taraflı sayfalama**, (3) çarpışma tarama ve SSA sınıflandırma algoritmalarında bir dizi doğruluk düzeltmesi, (4) dashboard genelinde bir kullanılabilirlik ve bilimsel şeffaflık turu (açıklama kutuları, sahte göstergelerin kaldırılması, güncel mimari diyagramlar ve ekran görüntüleri).
+Bu sürüm dört ana eksende ilerler: (1) yer istasyonu bakım pencerelerinin operasyonel maliyetini hesaplayan yeni bir **Bakım Etki Analizi** modülü, (2) tüm büyük listelerde (uydu kataloğu, CDM, manevra, SSA) **sunucu taraflı sayfalama**, (3) çarpışma tarama ve SSA sınıflandırma algoritmalarında doğruluk düzeltmeleri, (4) dashboard genelinde  kullanılabilirlik ve bilimsel açıklama eklenmesi (açıklama kutuları, sahte göstergelerin kaldırılması, güncel mimari diyagramlar ve ekran görüntüleri).
 
 ## Yeni Özellikler
 
@@ -59,13 +59,8 @@ Sayfalama, `/tle/list`'in düz liste yerine `{items, total, ...}` döndürmesine
 
 ## Dashboard UX Turu ve Bilimsel Şeffaflık
 - **"Bu sayfa ne anlatıyor?" açıklama kutuları:** Her sayfaya, o sayfadaki teknik terimleri (TCA, SGP4, CDM, BSTAR, Random Forest, GMM, Isolation Forest/LOF, AOS/LOS, greedy arama, B* regresyonu vb.) kendi bağlamında tanımlayan katlanabilir kutular eklendi.
-- **Sahte göstergelerin kaldırılması:** Her zaman "OK" dönen `/health` endpoint'ine bağlı sahte "Sistem Sağlığı" kartı kaldırılıp gerçek manevra sayısına çevrildi; hiç yenilenmeyen statik "LIVE" rozeti kaldırılıp Canlı Harita'daki rozet gerçek 1 saniyelik interpolasyon hareketine bağlı dinamik göstergeye çevrildi.
 - **Yer İstasyonu Planlama tablosu:** İstasyon seçim sırası artık tooltip yerine doğrudan görünür rozet sütunu (kutup istasyonları ayrı renkte işaretli); stat kartı yükseklik tutarsızlığı (uzun not metni taşması) düzeltildi.
 - **`planner/optimizer.py`:** `dv=0` zaten optimal olduğunda scipy L-BFGS-B'nin türevsiz noktada ürettiği ham `"ABNORMAL: "` mesajı, `is_success` kriterine göre anlamlı Türkçe mesaja çevrildi.
-- **5 mimari diyagram** (`docs/Diagrams/*.drawio`, koyu+açık tema): sistem mimarisi, çarpışma tarama pipeline, manevra optimizasyonu (sequence), SSA/ML pipeline, yer istasyonu kapasite planlama — doğrudan koda bakılarak hazırlandı, README/RELEASE'in ilgili sürüm bölümlerine gömüldü.
-- **20+ yeni ekran görüntüsü** (`docs/Screenshots_v2/`), gerçek backend'e bağlı Playwright otomasyonuyla (mock veri yok) çekildi; eski (Aralık 2025) görüntüler `docs/Screenshots/` altında arşiv olarak korundu.
-- **Genel isimlendirme:** Kod ve dokümantasyondaki şirket adına özgü referanslar (Hello Space) genelleştirilip "büyüyen pocketqube/IoT uydu constellation operatörü" ifadesine çevrildi; `HELLO_SPACE_TARGET_*` sabitleri `REFERENCE_ORBIT_*` olarak yeniden adlandırıldı.
-- **Footer:** GitHub + LinkedIn bağlantıları, `© 2025-2026`, sürüm etiketi `v2.0.0`.
 
 ---
 
