@@ -8,6 +8,67 @@ Diğer modüllere özel diyagramlar ilgili sürüm bölümlerinde ve `docs/Diagr
 
 ---
 
+# Release Notes - v2.0.0 (Bakım Etki Analizi, Sayfalama, SSA & Conjunction İyileştirmeleri, Dashboard UX Turu)
+
+## Genel Bakış
+Bu sürüm dört ana eksende ilerler: (1) yer istasyonu bakım pencerelerinin operasyonel maliyetini hesaplayan yeni bir **Bakım Etki Analizi** modülü, (2) tüm büyük listelerde (uydu kataloğu, CDM, manevra, SSA) **sunucu taraflı sayfalama**, (3) çarpışma tarama ve SSA sınıflandırma algoritmalarında bir dizi doğruluk düzeltmesi, (4) dashboard genelinde bir kullanılabilirlik ve bilimsel şeffaflık turu (açıklama kutuları, sahte göstergelerin kaldırılması, güncel mimari diyagramlar ve ekran görüntüleri).
+
+## Yeni Özellikler
+
+### Bakım Etki Analizi (Maintenance Impact Analyzer)
+Yer istasyonu bakım penceresi optimizasyonu — bir bakım çalışması (anten söküm, yazılım güncellemesi vb.) hangi uydu geçişlerini kaybettirir sorusuna cevap verir.
+
+- **`service/maintenance_service.py`:** 1976 US Standard Atmosphere piecewise-exponential atmosfer modeli (150–1000 km, Vallado Tablo 8-4) ile B*'tan yörünge ömrüne (`T_life = 365 × (ρ_CAL/ρ(h)) × (B*_CAL/B*)`, kalibrasyon çıpası: 400km/B*=1e-4/365 gün) dönüşüm; ömre göre ağırlık basamağı (<180 gün → 3.0, 180-365 gün → 2.0, >365 gün → 1.0). 7 günlük ufku 30 dakikalık adımlarla tarayıp her aday bakım penceresi için maliyet puanını (`Σ pass.duration_s × weight`, çakışan geçişler üzerinden) hesaplar.
+- **Faz 2 — B* Regresyonu:** B* artık tek bir TLE anlık görüntüsünden değil, `tle_history` tablosundaki geçmiş kayıtlara doğrusal regresyon uygulanarak hesaplanır (en az 3 geçmiş kayıt varsa; yoksa anlık TLE değerine düşer). B*'ın zamanla yükselme trendi, uydunun beklenenden hızlı bozunduğunu ağırlığa yansıtır.
+- **Yeni endpoint:** `POST /maintenance/analyze` (`backend/api/router_maintenance.py`) — Pydantic v2 modelleri, `ValueError` → HTTP 422, `RuntimeError` → HTTP 503.
+- **Dashboard:** "Bakım Etki Analizi" paneli — istasyon/süre/iş emri/uydu sayısı formu, en iyi (yeşil) ve en kötü (kırmızı) zaman aralığı tabloları, uydu ağırlık detayları (etkin B*, tahmini ömür, ağırlık, B* kaynağı) katlanabilir tablosu.
+- **Bug fix:** Dashboard dropdown'unda Konya seçeneği vardı ama `CANDIDATE_GROUND_STATIONS` listesinde yoktu → HTTP 422. `ground_scheduling_config.py`'a Konya eklenerek konfigürasyon tutarsızlığı giderildi (Playwright doğrulamasında yakalandı).
+- **Doğrulama:** Ankara 4 saat → 452-458 geçiş, ~2700-2800 dk temas, ~329 pencere değerlendirildi; sıfır kayıplı pencereler "Sıfır Kayıp" rozetiyle işaretleniyor. Konya 4 saat → HTTP 200, ~440 geçiş.
+
+![Bakım Etki Analizi](docs/Screenshots_v2/21_bakim_etki_analizi.png "Bakım Etki Analizi")
+
+### Sunucu Taraflı Sayfalama
+Tüm büyük listeler artık `page` + `limit` parametresi alıp `{items, total, page, pages}` döndürür — önceden tüm kayıtlar tek seferde DOM'a basılıyordu.
+
+| Sayfa | Endpoint | Toplam kayıt |
+|---|---|---|
+| Uydu Kataloğu | `GET /tle/list` | ~16.000 |
+| CDM Çarpışma Uyarıları | `GET /conjunctions/alerts` | ~490 |
+| Manevra Tespiti | `GET /maneuver-detection/events` | — |
+| SSA Zekası | `GET /ssa/results` | ~16.000 |
+
+Frontend'de Bootstrap yerine uygulamanın cam/neon temasıyla uyumlu, elipsis mantığına sahip (`ilk, son, aktif ±2`) özel bir `renderPagination()` bileşeni kullanılır. Dashboard'daki toplam sayı kartları artık `limit=10000` yerine `limit=1&page=1` ile sadece `total` alanını okuyarak tek kayıt çeker.
+
+### SSA — Celestrak Güncellemesi Sonrası Sınıflandırma Takibi
+**Sorun:** Bir Celestrak TLE güncellemesi `raw_tles`'e binlerce yeni uydu eklediğinde `satellite_intelligence` tablosu bunları içermiyordu; yörünge rejimi ısı haritası LEFT JOIN nedeniyle sınıflandırılmamış uyduları gri nokta olarak gösteriyordu.
+
+- Isı haritası sorgusu LEFT JOIN → INNER JOIN'e çevrildi (yalnızca sınıflandırılmış uydular gösterilir, yanıltıcı gri noktalar kalkar).
+- Yeni `GET /ssa/status` endpoint'i (`{pending, total}`) — SSA paneli açıldığında bekleyen sınıflandırma sayısını kontrol eder; `pending > 0` ise sarı uyarı banner'ı + "Şimdi Sınıflandır" butonu gösterilir.
+- `analyze_all_satellites`, `ucs_database.csv` bulunamadığında boş ülke eşlemesiyle devam eder (artık crash vermez).
+
+### Çarpışma Algoritması İyileştirmeleri
+- **GEO_NEIGHBOR kategorisi:** Ortalama hareketi GEO bandında (`< 1.5×(2π/1436)`) ve dış merkezliği düşük (`< 0.01`) nesneler artık yanlışlıkla FORMATION'a değil GEO_NEIGHBOR'a sınıflandırılır (PROBA-3 gibi kasıtlı yüksek eksantrikli formasyon uçuşlarını yanlış eleyen bir kenar durumu düzeltildi).
+- **Debris/inaktif kuralı:** İsminde `DEB`/`R`/`B`/`ROCKET`/`STAGE`/`BODY` geçen nesneler artık FORMATION değil COLLISION olarak değerlendirilir (kontrolsüz enkaz kasıtlı formasyon uçuşu olamaz).
+- **FORMATION eşiği genişletildi:** Bağıl hız eşiği 0.05 km/s → 0.10 km/s (LEMUR+LEMUR çifti ~66 m/s'de yanlışlıkla COLLISION'a sınıflandırılıyordu).
+- **Skor gösterimi:** Risk yüzdesi artık `toFixed(0)` yerine `Math.floor` ile yuvarlanıyor — %99.77 gibi değerlerin yanıltıcı şekilde "%100"e yuvarlanması önlendi.
+- **GEO harita hatası:** HISPASAT gibi GEO uydularda haritanın `fitBounds` ile ~0.006° genişliğindeki bbox'a sığdırılması zoom seviyesini 18+'e çekip siyah/boş ekrana yol açıyordu. GEO nesneler (`alt_km > 33000`) artık 200km yarıçaplı kesikli çemberle ve sabit zoom=2 ile gösteriliyor (yörünge polyline'ı yerine).
+- **GEO_NEIGHBOR rozeti:** Dashboard'da mor "GEO KOMŞU" etiketiyle ayrı gösteriliyor.
+
+### Yer İstasyonu Harita Düzeltmesi
+Sayfalama, `/tle/list`'in düz liste yerine `{items, total, ...}` döndürmesine neden olunca, Yer İstasyonu Planlama haritası `sats.slice(0,15)` çağrısıyla boş dizi üzerinde çalışıp hiç uydu göstermiyordu. `satResp.items ?? satResp` ile geriye dönük uyumlu okuma sağlandı.
+
+## Dashboard UX Turu ve Bilimsel Şeffaflık
+- **"Bu sayfa ne anlatıyor?" açıklama kutuları:** Her sayfaya, o sayfadaki teknik terimleri (TCA, SGP4, CDM, BSTAR, Random Forest, GMM, Isolation Forest/LOF, AOS/LOS, greedy arama, B* regresyonu vb.) kendi bağlamında tanımlayan katlanabilir kutular eklendi.
+- **Sahte göstergelerin kaldırılması:** Her zaman "OK" dönen `/health` endpoint'ine bağlı sahte "Sistem Sağlığı" kartı kaldırılıp gerçek manevra sayısına çevrildi; hiç yenilenmeyen statik "LIVE" rozeti kaldırılıp Canlı Harita'daki rozet gerçek 1 saniyelik interpolasyon hareketine bağlı dinamik göstergeye çevrildi.
+- **Yer İstasyonu Planlama tablosu:** İstasyon seçim sırası artık tooltip yerine doğrudan görünür rozet sütunu (kutup istasyonları ayrı renkte işaretli); stat kartı yükseklik tutarsızlığı (uzun not metni taşması) düzeltildi.
+- **`planner/optimizer.py`:** `dv=0` zaten optimal olduğunda scipy L-BFGS-B'nin türevsiz noktada ürettiği ham `"ABNORMAL: "` mesajı, `is_success` kriterine göre anlamlı Türkçe mesaja çevrildi.
+- **5 mimari diyagram** (`docs/Diagrams/*.drawio`, koyu+açık tema): sistem mimarisi, çarpışma tarama pipeline, manevra optimizasyonu (sequence), SSA/ML pipeline, yer istasyonu kapasite planlama — doğrudan koda bakılarak hazırlandı, README/RELEASE'in ilgili sürüm bölümlerine gömüldü.
+- **20+ yeni ekran görüntüsü** (`docs/Screenshots_v2/`), gerçek backend'e bağlı Playwright otomasyonuyla (mock veri yok) çekildi; eski (Aralık 2025) görüntüler `docs/Screenshots/` altında arşiv olarak korundu.
+- **Genel isimlendirme:** Kod ve dokümantasyondaki şirket adına özgü referanslar (Hello Space) genelleştirilip "büyüyen pocketqube/IoT uydu constellation operatörü" ifadesine çevrildi; `HELLO_SPACE_TARGET_*` sabitleri `REFERENCE_ORBIT_*` olarak yeniden adlandırıldı.
+- **Footer:** GitHub + LinkedIn bağlantıları, `© 2025-2026`, sürüm etiketi `v2.0.0`.
+
+---
+
 # Release Notes - v1.4.0 (Ground Station Scheduling & Capacity Planning)
 
 > **Ana Bulgu:** SSO/polar yörüngeli, büyüyen küçük uydu constellation'larında kapasite kaybı, istasyon sayısından çok istasyonların coğrafi konumuna bağlı. Kutup-bölgesi istasyonları (örn. Svalbard) SSO uydularını her turda gördüğü için orantısız geçiş yoğunluğu üretir. Rastgele bir istasyon eklemek kaybı azaltmak yerine **artırabilir**. Daha da önemlisi **EN İYİ istasyonu seçen greedy bir arama bile** (12 adaylık havuzdaki tüm seçenekleri en-iyiden-en-kötüye sırayla dener) %50 kayıp-azaltma hedefine ulaşamıyor. Bu yanlış istasyon seçimi sorunundan öte, modelin varsayımları altında yapısal bir kapasite tavanına işaret ediyor. Detay: [Bulgu: Kutup İstasyonu Darboğazı](#bulgu-kutup-istasyonu-darboğazı).

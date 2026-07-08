@@ -63,6 +63,15 @@ Gerçek dünyada SSO ağırlıklı yer gözlem operatörleri bu nedenle kutup/ya
 
 Tam tablo ve gerekçeler: [RELEASE.md](RELEASE.md#veri-ve-varsayımlar-şeffaflığı).
 
+### Bakım Etki Analizi (Maintenance Impact Analyzer)
+Bir yer istasyonunda planlanan bakım çalışmasının (anten söküm, yazılım güncellemesi vb.) hangi uydu geçişlerini kaybettireceğini hesaplar:
+
+* **B* → Ömür Dönüşümü:** 1976 US Standard Atmosphere piecewise-exponential atmosfer modeli (150–1000 km) ile TLE'deki B* sürüklenme katsayısından tahmini yörünge ömrü türetilir; ömre göre uyduya bir "kayıp önceliği" ağırlığı atanır (<180 gün → 3.0, 180-365 gün → 2.0, >365 gün → 1.0).
+* **B* Regresyonu:** B*, tek bir TLE anlık görüntüsü yerine `tle_history` tablosundaki geçmiş kayıtlara doğrusal regresyon uygulanarak hesaplanır — bozunma trendi hızlanan bir uydu daha yüksek ağırlık alır.
+* **Pencere Skorlama:** 7 günlük ufku 30 dakikalık adımlarla tarayarak her aday bakım penceresi için maliyet puanını (kayıp geçişlerin `süre × ağırlık` toplamı) hesaplar ve en iyi/en kötü zaman aralıklarını sıralar.
+
+Detaylı doğrulama sonuçları: [RELEASE.md](RELEASE.md#bakım-etki-analizi-maintenance-impact-analyzer).
+
 ### Frontend
 
 * **Canlı Harita Görünümü:** Leaflet.js haritası üzerinde, seçilen uyduların SGP4 ile hesaplanmış yörünge yollarını (Lat/Lon/Alt) görselleştirir.
@@ -70,6 +79,7 @@ Tam tablo ve gerekçeler: [RELEASE.md](RELEASE.md#veri-ve-varsayımlar-şeffafl�
 * **Manevra Planlama Modalı:** Seçilen bir çarpışma uyarısı için, hedeflenen güvenli mesafeye ulaşmak için gereken optimal DeltaV değerlerini gösteren etkileşimli bir arayüz sunar.
 * **Manevra Tespiti Paneli:** Katalogdaki uydular için otomatik taranan geçmiş manevra olaylarını (tip, Δa/Δi/Δe, tahmini ΔV, güven skoru) listeler.
 * **Canlı Yörünge Yenileme:** Haritadaki uydu işaretçisi, 100 dakikalık hesaplama penceresinin sonuna yaklaştığında arka planda otomatik olarak yeni bir yörünge parçası çekerek kesintisiz takip sağlar.
+* **Sunucu Taraflı Sayfalama:** Uydu Kataloğu, CDM Çarpışma Uyarıları, Manevra Tespiti ve SSA Zekası listeleri `page`/`limit` parametreleriyle sayfalanır; binlerce kaydın tamamı tek seferde DOM'a basılmaz.
 
 ### ASTM-Demo Örneği
 [![ASTM Demo Video](docs/Screenshots/dashboard.png)](https://vimeo.com/1145363572)
@@ -138,6 +148,7 @@ Demo videosuna ve rapora ```docs``` dizininden ulaşabilirsiniz. Demo videosunu 
 | **Yer İstasyonu Görüş Geometrisi** | `processing/ground_station.py` | TEME konumundan topocentric elevasyon açısı hesaplar, AOS/LOS geçiş pencerelerini bulur |
 | **Çakışma Tespiti (İstasyon)** | `processing/schedule_conflict.py` | Aynı istasyonda zaman içinde örtüşen geçiş pencerelerini ve çakışma oranını tespit eder |
 | **Yer İstasyonu Çizelgeleme** | `planner/ground_scheduler.py` | İstasyon-bağımlı Earliest-Finish-Time greedy algoritmasıyla çakışan geçişler arasından atama yapar |
+| **Bakım Etki Analizi** | `service/maintenance_service.py` | B*'tan atmosfer modeliyle yörünge ömrü/ağırlık türetir, 7 günlük ufukta bakım penceresi maliyetini puanlar |
 
 ## Test ve Doğrulama
 
@@ -260,3 +271,7 @@ Aday istasyon haritası ve senaryo parametreleri (uydu sayısı, istasyon sayıs
 ### Yer İstasyonu Kapasite Planlama — Tüm Senaryolar (Izgara)
 ![Yer İstasyonu Grid Sonuç](docs/Screenshots_v2/19_yer_istasyonu_grid_sonuc.png "Senaryo ızgarası sonucu")
 3/10/30/80 uydu × 1/2/3 istasyon ızgarasının tam koşusu — her satırda, hedefe ulaşmak için greedy aramayla seçilen istasyonların sırası (kutup istasyonları ayrı renkle işaretli) doğrudan görünür sütun olarak gösterilir.
+
+### Bakım Etki Analizi
+![Bakım Etki Analizi](docs/Screenshots_v2/21_bakim_etki_analizi.png "Bakım Etki Analizi")
+Ankara istasyonu için 4 saatlik bakım senaryosu — 7 günlük ufukta gerçek SGP4 geçişleriyle hesaplanan en iyi (yeşil, "Sıfır Kayıp") ve en kötü (kırmızı) bakım zaman aralıkları, B*'tan türetilen uydu ağırlıklarıyla puanlanmış.
